@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      String   @default("user") // "user" | "seller" | "admin"
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Product Product[]
+
+  Order Order[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  title       String
+  price       Int
+  size        String?
+  condition   String?
+  description String?
+  imageUrl    String
+  imagePublicId String?
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ProductVariant ProductVariant[]
+}
+
+model ProductVariant {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku       String? @unique
+  name      String  // ej: "S", "M", "L" (talle visible)
+  stock     Int     @default(0)
+  price     Int?    // opcional: precio por variante (si null, usar product.price)
+
+  @@index([productId])
+  @@unique([productId, name]) // evita variantes duplicadas por nombre
+}
+
+model Order {
+  id         String       @id @default(cuid())
+  userId     String?
+  user       User?        @relation(fields: [userId], references: [id])
+  status     String       @default("pending") // pending | paid | canceled
+  name       String
+  phone      String
+  address    String
+  notes      String?
+  subtotal   Int          // en Gs (sin decimales)
+  createdAt  DateTime     @default(now())
+  items      OrderItem[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  productId  String
+  variantId  String?  
+  title      String
+  price      Int      // precio unitario en Gs
+  quantity   Int
+  imageUrl   String
+}

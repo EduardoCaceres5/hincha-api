@@ -1,0 +1,35 @@
+{
+  "name": "hincha-api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "prisma:studio": "prisma studio",
+    "db:push": "prisma db push",
+    "lint": "eslint",
+    "postinstall": "prisma generate",
+    "vercel-build": "prisma migrate deploy && next build"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "bcryptjs": "^3.0.2",
+    "cloudinary": "^2.7.0",
+    "jose": "^6.1.0",
+    "next": "15.5.3",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "zod": "^4.1.9"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.3",
+    "prisma": "^6.16.2",
+    "typescript": "^5"
+  }
+}

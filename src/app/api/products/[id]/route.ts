@@ -20,7 +20,7 @@ export async function OPTIONS(req: NextRequest) {
 
 export async function GET(
   req: NextRequest,
-  ctx: { params: Promise<{ id: string }> } // 👈 Next 15: params es Promise
+  ctx: { params: Promise<{ id: string }> }
 ) {
   const origin = req.headers.get("origin");
   try {

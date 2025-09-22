@@ -58,39 +58,37 @@ export async function PATCH(
   const origin = req.headers.get("origin");
   try {
     await requireRole(req, ["admin"]);
+
     const { status } = schema.parse(await req.json());
 
     const updated = await prisma.$transaction(async (tx) => {
+      // Actualizamos el estado solicitado
       const order = await tx.order.update({
         where: { id: params.id },
         data: { status },
         include: {
-          items: { select: { productId: true, quantity: true, title: true } },
+          items: {
+            select: {
+              productId: true,
+              variantId: true,
+              quantity: true,
+              title: true,
+            },
+          },
         },
       });
 
-      // Descontar stock SOLO cuando pasa a "paid"
+      // Si es "paid", descontar stock de variantes (si aplica)
       if (status === "paid") {
-        await prisma.$transaction(async (tx) => {
-          const ord = await tx.order.findUnique({
-            where: { id: params.id },
-            include: { items: { select: { variantId: true, quantity: true } } },
-          });
-          if (!ord) throw new Error("NOT_FOUND");
-          // restar stock solo de variantes (si no hay variantes, no hay stock por talla)
-          for (const it of ord.items) {
-            if (it.variantId) {
-              await tx.productVariant.update({
-                where: { id: it.variantId },
-                data: { stock: { decrement: it.quantity } },
-              });
-            }
+        // Restar stock solo de items con variantId
+        for (const it of order.items) {
+          if (it.variantId) {
+            await tx.productVariant.update({
+              where: { id: it.variantId },
+              data: { stock: { decrement: it.quantity } },
+            });
           }
-          await tx.order.update({
-            where: { id: params.id },
-            data: { status: "paid" },
-          });
-        });
+        }
       }
 
       return order;

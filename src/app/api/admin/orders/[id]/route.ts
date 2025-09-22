@@ -12,14 +12,16 @@ const schema = z.object({ status: z.enum(["pending", "paid", "canceled"]) });
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  ctx: { params: Record<string, string | string[]> }
 ) {
   const origin = req.headers.get("origin");
   try {
+    const id = ctx.params.id as string;
+
     await requireRole(req, ["admin"]);
     const { status } = schema.parse(await req.json());
     const updated = await prisma.order.update({
-      where: { id: params.id },
+      where: { id: id },
       data: { status },
     });
     return new Response(

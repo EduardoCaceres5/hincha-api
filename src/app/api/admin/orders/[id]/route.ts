@@ -12,18 +12,23 @@ const schema = z.object({ status: z.enum(["pending", "paid", "canceled"]) });
 
 export async function PATCH(
   req: NextRequest,
-  ctx: { params: Record<string, string | string[]> }
+  context: { params: Record<string, string | string[]> }
 ) {
   const origin = req.headers.get("origin");
   try {
-    const id = ctx.params.id as string;
-
     await requireRole(req, ["admin"]);
+
     const { status } = schema.parse(await req.json());
+
+    // Aseguramos string aunque Next pueda entregar string | string[]
+    const idParam = context.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : (idParam as string);
+
     const updated = await prisma.order.update({
-      where: { id: id },
+      where: { id },
       data: { status },
     });
+
     return new Response(
       JSON.stringify(updated),
       withCORS({ status: 200 }, origin)

@@ -99,9 +99,10 @@ export async function POST(req: NextRequest) {
       JSON.stringify({ id: order.id }),
       withCORS({ status: 201 }, origin)
     );
-  } catch (e: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
     return new Response(
-      JSON.stringify({ error: "BAD_REQUEST", message: e?.message }),
+      JSON.stringify({ error: "BAD_REQUEST", message }),
       withCORS({ status: 400 }, origin)
     );
   }

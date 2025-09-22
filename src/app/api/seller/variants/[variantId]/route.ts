@@ -52,9 +52,10 @@ export async function PATCH(
       JSON.stringify(updated),
       withCORS({ status: 200 }, origin)
     );
-  } catch (e: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
     return new Response(
-      JSON.stringify({ error: e?.message || "BAD_REQUEST" }),
+      JSON.stringify({ error: "BAD_REQUEST", message }),
       withCORS({ status: 400 }, origin)
     );
   }
@@ -76,9 +77,10 @@ export async function DELETE(
     }
     await prisma.productVariant.delete({ where: { id: variantId } });
     return new Response(null, withCORS({ status: 204 }, origin));
-  } catch (e: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
     return new Response(
-      JSON.stringify({ error: e?.message || "BAD_REQUEST" }),
+      JSON.stringify({ error: "BAD_REQUEST", message }),
       withCORS({ status: 400 }, origin)
     );
   }

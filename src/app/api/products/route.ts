@@ -74,13 +74,10 @@ export async function GET(req: NextRequest) {
       JSON.stringify({ items, total, page, limit }),
       withCORS({ status: 200 }, origin)
     );
-  } catch (e: any) {
-    console.error("GET /api/products failed:", e?.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
     return new Response(
-      JSON.stringify({
-        error: "BAD_REQUEST",
-        message: e?.message ?? "Unknown error",
-      }),
+      JSON.stringify({ error: "BAD_REQUEST", message }),
       withCORS({ status: 400 }, origin)
     );
   }
@@ -108,9 +105,10 @@ export async function POST(req: NextRequest) {
       JSON.stringify(created),
       withCORS({ status: 201 }, origin)
     );
-  } catch (e: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
     return new Response(
-      JSON.stringify({ error: "BAD_REQUEST", message: e?.message }),
+      JSON.stringify({ error: "BAD_REQUEST", message }),
       withCORS({ status: 400 }, origin)
     );
   }

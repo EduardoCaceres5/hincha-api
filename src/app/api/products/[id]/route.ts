@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { withCORS, preflight } from "@/lib/cors";
 import { requireAuth } from "@/lib/auth";
-import { v2 as cloudinary } from "cloudinary";
+import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 import { z } from "zod";
 
 cloudinary.config({
@@ -58,13 +58,10 @@ export async function GET(
       JSON.stringify(product),
       withCORS({ status: 200 }, origin)
     );
-  } catch (e: any) {
-    console.error("GET /api/products/[id] failed:", e?.message, e); // 👈 ver consola del backend
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
     return new Response(
-      JSON.stringify({
-        error: "BAD_REQUEST",
-        message: e?.message ?? "unknown",
-      }),
+      JSON.stringify({ error: "BAD_REQUEST", message }),
       withCORS({ status: 400 }, origin)
     );
   }
@@ -80,6 +77,8 @@ const updateSchema = z.object({
   imageUrl: z.string().url().optional(),
 });
 
+// Strongly-typed payload inferred from Zod schema
+type UpdatePayload = z.infer<typeof updateSchema>;
 export async function PUT(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
@@ -102,7 +101,8 @@ export async function PUT(
       );
 
     const ct = req.headers.get("content-type") || "";
-    let data: any = {};
+    let data: Partial<UpdatePayload> = {};
+    let payload!: UpdatePayload;
     let newImageUrl: string | undefined;
     let newPublicId: string | undefined;
 
@@ -117,10 +117,27 @@ export async function PUT(
         "description",
       ] as const) {
         const v = form.get(k);
-        if (v != null && v !== "")
-          data[k] = k === "price" ? Number(v) : String(v);
+        if (typeof v === "string" && v !== "") {
+          switch (k) {
+            case "price":
+              data.price = Number(v);
+              break;
+            case "title":
+              data.title = v;
+              break;
+            case "size":
+              data.size = v;
+              break;
+            case "condition":
+              data.condition = v;
+              break;
+            case "description":
+              data.description = v;
+              break;
+          }
+        }
       }
-      data = updateSchema.parse(data);
+      payload = updateSchema.parse(data);
 
       // imagen opcional
       const file = form.get("image") as File | null;
@@ -136,22 +153,28 @@ export async function PUT(
             withCORS({ status: 400 }, req.headers.get("origin"))
           );
         const buffer = Buffer.from(await file.arrayBuffer());
-        const uploaded = await new Promise<any>((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              folder: process.env.CLOUDINARY_FOLDER || "hincha-store",
-              resource_type: "image",
-            },
-            (error, result) => (error ? reject(error) : resolve(result))
-          );
-          stream.end(buffer);
-        });
+        const uploaded = await new Promise<UploadApiResponse>(
+          (resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+              {
+                folder: process.env.CLOUDINARY_FOLDER || "hincha-store",
+                resource_type: "image",
+              },
+              (error, result) =>
+                error || !result
+                  ? reject(error || new Error("Upload failed"))
+                  : resolve(result)
+            );
+            stream.end(buffer);
+          }
+        );
         newImageUrl = uploaded.secure_url;
         newPublicId = uploaded.public_id;
       }
     } else {
       // JSON
-      const body = await req.json().catch(() => ({}));
+      const body: unknown = await req.json().catch(() => ({}));
+      payload = updateSchema.parse(body);
       data = updateSchema.parse(body);
     }
 
@@ -165,7 +188,7 @@ export async function PUT(
     const updated = await prisma.product.update({
       where: { id: existing.id },
       data: {
-        ...data,
+        ...payload,
         ...(newImageUrl
           ? { imageUrl: newImageUrl, imagePublicId: newPublicId }
           : {}),
@@ -176,7 +199,7 @@ export async function PUT(
       JSON.stringify(updated),
       withCORS({ status: 200 }, req.headers.get("origin"))
     );
-  } catch (e) {
+  } catch {
     return new Response(
       JSON.stringify({ error: "BAD_REQUEST" }),
       withCORS({ status: 400 }, req.headers.get("origin"))

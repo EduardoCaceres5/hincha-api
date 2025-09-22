@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { withCORS, preflight } from "@/lib/cors";
 import { requireRole } from "@/lib/authz";
+import { Prisma } from "@prisma/client";
 
 export async function OPTIONS(req: NextRequest) {
   return preflight(req.headers.get("origin"));
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status") || undefined;
     const search = searchParams.get("search") || undefined;
 
-    const where: any = {};
+    const where: Prisma.OrderWhereInput = {};
     if (status) where.status = status;
     if (search)
       where.OR = [

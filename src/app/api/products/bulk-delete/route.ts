@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       JSON.stringify({ deleted: products.length }),
       withCORS({ status: 200 }, origin)
     );
-  } catch (e) {
+  } catch {
     return new Response(
       JSON.stringify({ error: "BAD_REQUEST" }),
       withCORS({ status: 400 }, origin)

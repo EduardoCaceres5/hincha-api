@@ -51,11 +51,11 @@ export async function GET(req: NextRequest) {
       JSON.stringify({ items }),
       withCORS({ status: 200 }, origin)
     );
-  } catch (e: any) {
-    // 403 cuando no tiene rol o falla authz
-    const status = e?.message === "FORBIDDEN" ? 403 : 400;
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "BAD_REQUEST";
+    const status = message === "FORBIDDEN" ? 403 : 400;
     return new Response(
-      JSON.stringify({ error: e?.message || "BAD_REQUEST" }),
+      JSON.stringify({ error: message }),
       withCORS({ status }, origin)
     );
   }

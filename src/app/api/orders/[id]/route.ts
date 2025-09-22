@@ -100,9 +100,10 @@ export async function PATCH(
       JSON.stringify(updated),
       withCORS({ status: 200 }, origin)
     );
-  } catch (e: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
     return new Response(
-      JSON.stringify({ error: "BAD_REQUEST", message: e?.message }),
+      JSON.stringify({ error: "BAD_REQUEST", message }),
       withCORS({ status: 400 }, origin)
     );
   }

@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     });
 
     return new Response(JSON.stringify(user), withCORS({ status: 201 }));
-  } catch (e) {
+  } catch {
     return new Response(
       JSON.stringify({ error: "BAD_REQUEST" }),
       withCORS({ status: 400 })

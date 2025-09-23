@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { withCORS, preflight } from "@/lib/cors";
+import { NextRequest } from "next/server";
 
 export async function OPTIONS(req: NextRequest) {
   return preflight(req.headers.get("origin"));

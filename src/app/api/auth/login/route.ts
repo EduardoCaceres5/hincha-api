@@ -15,6 +15,7 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const origin = req.headers.get("origin");
   try {
     const body = await req.json();
     const { email, password } = schema.parse(body);
@@ -31,19 +32,19 @@ export async function POST(req: NextRequest) {
     if (!ok) {
       return new Response(
         JSON.stringify({ error: "INVALID_CREDENTIALS" }),
-        withCORS({ status: 401 })
+        withCORS({ status: 401 }, origin)
       );
     }
 
     const accessToken = await signJWT({ sub: user.id, email: user.email });
     return new Response(
       JSON.stringify({ accessToken }),
-      withCORS({ status: 200 })
+      withCORS({ status: 200 }, origin)
     );
   } catch {
     return new Response(
       JSON.stringify({ error: "BAD_REQUEST" }),
-      withCORS({ status: 400 })
+      withCORS({ status: 400 }, origin)
     );
   }
 }

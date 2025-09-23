@@ -97,9 +97,9 @@ export async function POST(req: NextRequest) {
         description: dto.description ?? null,
         imageUrl: dto.imageUrl,
         ownerId: String(sub),
-        variants: { createMany: { data: dto.variants } },
+        ProductVariant: { createMany: { data: dto.variants } },
       },
-      include: { variants: true },
+      include: { ProductVariant: true },
     });
     return new Response(
       JSON.stringify(created),

@@ -36,6 +36,8 @@ model Product {
   updatedAt   DateTime @updatedAt
 
   ProductVariant ProductVariant[]
+
+  OrderItem OrderItem[]
 }
 
 model ProductVariant {
@@ -70,6 +72,7 @@ model OrderItem {
   orderId    String
   order      Order    @relation(fields: [orderId], references: [id])
   productId  String
+  product   Product  @relation(fields: [productId], references: [id])
   variantId  String?  
   title      String
   price      Int      // precio unitario en Gs

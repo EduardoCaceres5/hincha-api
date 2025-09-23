@@ -34,7 +34,7 @@ export async function PATCH(
       );
 
     const updated = await prisma.order.update({
-      where: { id: params.id },
+      where: { id: id },
       data: { status },
     });
     return new Response(

@@ -13,13 +13,14 @@ export async function OPTIONS(req: NextRequest) {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const origin = req.headers.get("origin");
+  const { id } = await params;
   try {
     const { sub } = await requireAuth(req);
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         items: {
           select: {

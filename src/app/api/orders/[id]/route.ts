@@ -53,7 +53,7 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const origin = req.headers.get("origin");
   try {
@@ -61,10 +61,12 @@ export async function PATCH(
 
     const { status } = schema.parse(await req.json());
 
+    const { id } = await params;
+
     const updated = await prisma.$transaction(async (tx) => {
       // Actualizamos el estado solicitado
       const order = await tx.order.update({
-        where: { id: params.id },
+        where: { id: id },
         data: { status },
         include: {
           items: {

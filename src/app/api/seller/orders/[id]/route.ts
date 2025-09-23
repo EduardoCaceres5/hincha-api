@@ -11,17 +11,18 @@ const schema = z.object({ status: z.enum(["pending", "paid", "canceled"]) });
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const origin = req.headers.get("origin");
   try {
     const user = await requireRole(req, ["seller", "admin"]);
     const { status } = schema.parse(await req.json());
 
+    const { id } = await params;
     // Verificar pertenencia
     const found = await prisma.order.findFirst({
       where: {
-        id: params.id,
+        id: id,
         items: { some: { product: { ownerId: user.id } } },
       },
       select: { id: true },

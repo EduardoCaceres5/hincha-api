@@ -12,7 +12,7 @@ const schema = z.object({ status: z.enum(["pending", "paid", "canceled"]) });
 
 export async function PATCH(
   req: NextRequest,
-  context: { params: Record<string, string | string[]> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const origin = req.headers.get("origin");
   try {
@@ -20,10 +20,7 @@ export async function PATCH(
 
     const { status } = schema.parse(await req.json());
 
-    // Aseguramos string aunque Next pueda entregar string | string[]
-    const idParam = context.params.id;
-    const id = Array.isArray(idParam) ? idParam[0] : (idParam as string);
-
+    const { id } = await params;
     const updated = await prisma.order.update({
       where: { id },
       data: { status },

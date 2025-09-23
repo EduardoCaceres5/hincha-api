@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/authz";
 import { withCORS, preflight } from "@/lib/cors";
 
 export async function OPTIONS(req: NextRequest) {
-  return preflight(req.headers.get("origin"));
+  return preflight(req);
 }
 
 export async function GET(req: NextRequest) {

@@ -13,7 +13,7 @@ cloudinary.config({
 });
 
 export async function OPTIONS(req: NextRequest) {
-  return preflight(req.headers.get("origin"));
+  return preflight(req);
 }
 
 export async function POST(req: NextRequest) {

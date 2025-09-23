@@ -18,7 +18,7 @@ const CreateSchema = z.object({
 });
 
 export async function OPTIONS(req: NextRequest) {
-  return preflight(req.headers.get("origin"));
+  return preflight(req);
 }
 
 const QuerySchema = z.object({

@@ -5,7 +5,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 
 export async function OPTIONS(req: NextRequest) {
-  return preflight(req.headers.get("origin"));
+  return preflight(req);
 }
 
 const schema = z.object({

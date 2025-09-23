@@ -15,7 +15,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 
 export async function OPTIONS(req: NextRequest) {
-  return preflight(req.headers.get("origin"));
+  return preflight(req);
 }
 
 export async function GET(

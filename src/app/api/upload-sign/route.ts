@@ -3,7 +3,7 @@ import { withCORS, preflight } from "@/lib/cors";
 import { NextRequest } from "next/server";
 
 export async function OPTIONS(req: NextRequest) {
-  return preflight(req.headers.get("origin"));
+  return preflight(req);
 }
 
 export async function GET() {
@@ -12,6 +12,7 @@ export async function GET() {
   const api_secret = process.env.CLOUDINARY_API_SECRET!;
   const timestamp = Math.round(Date.now() / 1000);
   const params = `timestamp=${timestamp}`;
+  S;
   const signature = crypto
     .createHash("sha1")
     .update(params + api_secret)

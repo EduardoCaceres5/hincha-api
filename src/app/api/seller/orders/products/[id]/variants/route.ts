@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 
 export async function OPTIONS(req: NextRequest) {
-  return preflight(req.headers.get("origin"));
+  return preflight(req);
 }
 
 // Alineado a tu modelo ProductVariant:

@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/authz";
 import { Prisma } from "@prisma/client";
 
 export async function OPTIONS(req: NextRequest) {
-  return preflight(req.headers.get("origin"));
+  return preflight(req);
 }
 
 export async function GET(req: NextRequest) {

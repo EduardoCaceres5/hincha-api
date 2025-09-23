@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/authz"; // debe devolver { id, role }
 import { withCORS, preflight } from "@/lib/cors"; // tus helpers CORS
 
 export async function OPTIONS(req: NextRequest) {
-  return preflight(req.headers.get("origin"));
+  return preflight(req);
 }
 
 export async function GET(req: NextRequest) {

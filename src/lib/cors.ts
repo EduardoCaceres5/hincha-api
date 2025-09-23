@@ -1,38 +1,76 @@
-const DEFAULT_ORIGINS = process.env.CORS_ORIGIN || "http://localhost:5173";
+import type { NextRequest } from "next/server";
 
-function resolveOrigin(reqOrigin: string | null) {
-  const env = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "";
-  const allowed = env
-    ? env
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : DEFAULT_ORIGINS;
-  if (!reqOrigin) return allowed[0];
-  return allowed.includes(reqOrigin) ? reqOrigin : allowed[0];
+function normalizeOrigin(origin: string | null): string | null {
+  if (!origin) return null;
+  try {
+    const u = new URL(origin);
+    // proto://host (sin path ni barra final)
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return origin.replace(/\/+$/, "");
+  }
 }
 
-export function withCORS(init?: ResponseInit, reqOrigin?: string | null) {
-  const origin = resolveOrigin(reqOrigin || null);
-  const baseHeaders = {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    // Si usás cookies/sesiones cross-site, descomenta la siguiente línea:
-    "Access-Control-Allow-Credentials": "true",
-    // Mejora de caché de CORS (evita respuestas “pegadas” a otro Origin)
-    Vary: "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
-  } as Record<string, string>;
-
-  return {
-    ...init,
-    headers: {
-      ...baseHeaders,
-      ...(init?.headers || {}),
-    },
-  };
+function parseAllowedOrigins(): string[] {
+  const raw =
+    process.env.CORS_ORIGINS ??
+    process.env.CORS_ORIGIN ??
+    "http://localhost:5173";
+  return raw
+    .split(",")
+    .map((s) => normalizeOrigin(s.trim()))
+    .filter((x): x is string => Boolean(x));
 }
 
-export function preflight(origin?: string | null) {
-  return new Response(null, withCORS({ status: 204 }, origin));
+const ALLOWED = new Set(parseAllowedOrigins());
+
+export function withCORS(
+  init: ResponseInit = {},
+  reqOrigin?: string | null
+): ResponseInit {
+  const origin = normalizeOrigin(reqOrigin ?? null);
+  const headers = new Headers(init.headers);
+
+  if (origin && ALLOWED.has(origin)) {
+    headers.set("Access-Control-Allow-Origin", origin); // debe coincidir 1:1
+    headers.set("Access-Control-Allow-Credentials", "true");
+  }
+  headers.set(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PATCH,PUT,DELETE,OPTIONS"
+  );
+  // Si el preflight pidió headers específicos, se resuelven en preflight()
+  headers.set("Access-Control-Allow-Headers", "authorization,content-type");
+  headers.set(
+    "Vary",
+    "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+  );
+
+  return { ...init, headers };
+}
+
+export function preflight(req: NextRequest) {
+  const origin = normalizeOrigin(req.headers.get("origin"));
+  const acrh =
+    req.headers.get("access-control-request-headers") ??
+    "authorization,content-type";
+
+  const headers = new Headers();
+  if (origin && ALLOWED.has(origin)) {
+    headers.set("Access-Control-Allow-Origin", origin);
+    headers.set("Access-Control-Allow-Credentials", "true");
+  }
+  headers.set(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PATCH,PUT,DELETE,OPTIONS"
+  );
+  headers.set("Access-Control-Allow-Headers", acrh);
+  headers.set(
+    "Vary",
+    "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+  );
+
+  // 204 si el origin es válido; 403 si no lo es
+  const status = origin && ALLOWED.has(origin) ? 204 : 403;
+  return new Response(null, { status, headers });
 }

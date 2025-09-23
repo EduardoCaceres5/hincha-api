@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/authz";
 const schema = z.object({ status: z.enum(["pending", "paid", "canceled"]) });
 
 export async function OPTIONS(req: NextRequest) {
-  return preflight(req.headers.get("origin"));
+  return preflight(req);
 }
 
 export async function GET(

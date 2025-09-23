@@ -5,7 +5,7 @@ import { withCORS, preflight } from "@/lib/cors";
 import { z } from "zod";
 
 export async function OPTIONS(req: NextRequest) {
-  return preflight(req.headers.get("origin"));
+  return preflight(req);
 }
 
 const updateSchema = z.object({

@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
         price: base.price,
         description: base.description ?? null,
         size: base.size ?? null,
-        condition: (base.condition as any) ?? null,
+        condition: base.condition ?? null,
         imageUrl: secure_url, // https
         imagePublicId: public_id,
         variants,
@@ -253,7 +253,7 @@ export async function POST(req: NextRequest) {
         price: dto.price,
         description: dto.description ?? null,
         size: dto.size ?? null,
-        condition: (dto.condition as any) ?? null,
+        condition: dto.condition ?? null,
         imageUrl,
         imagePublicId: dto.imagePublicId ?? null,
         variants: dto.variants,

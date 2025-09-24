@@ -12,27 +12,6 @@ Construida con **Next.js (App Router)**, **Prisma** y **Zod**, desplegada en **V
 
 ---
 
-## Tabla de contenidos
-
-- [Características](#-características)
-- [Arquitectura](#-arquitectura)
-- [Requisitos](#-requisitos)
-- [Variables de entorno](#-variables-de-entorno)
-- [Primera ejecución](#-primera-ejecución)
-- [Scripts](#-scripts)
-- [CORS](#-cors)
-- [Base de datos (Prisma)](#-base-de-datos-prisma)
-- [Rutas principales](#-rutas-principales)
-- [Autenticación y Autorización](#-autenticación-y-autorización)
-- [Imágenes (Cloudinary)](#-imágenes-cloudinary)
-- [Personalización y Parches (opcional)](#-personalización-y-parches-opcional)
-- [Despliegue en Vercel](#-despliegue-en-vercel)
-- [Solución de problemas](#-solución-de-problemas)
-- [Licencia](#-licencia)
-- [Créditos](#-créditos)
-
----
-
 ## 🚀 Características
 
 - **API REST** con Next.js (App Router) y manejadores `route.ts`.
@@ -44,7 +23,11 @@ Construida con **Next.js (App Router)**, **Prisma** y **Zod**, desplegada en **V
 - **Personalización de pedidos** (opcional): nombre/número y parches.
 - Pensada para **Vercel** (build y runtime serverless).
 
+
 ---
 
-## 🧱 Arquitectura
+## ✅ Requisitos
 
+- **Node.js ≥ 18** (recomendado 20+).
+- **pnpm** (o npm/yarn). El repo usa pnpm.
+- **PostgreSQL** (recomendado Supabase).

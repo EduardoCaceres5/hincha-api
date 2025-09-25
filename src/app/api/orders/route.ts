@@ -1,11 +1,23 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { withCORS, preflight } from "@/lib/cors";
-import { requireAuth } from "@/lib/auth";
 import { z } from "zod";
+import { verifyJwtFromRequest } from "@/lib/auth"; // 👈 util que valida el JWT y retorna payload o lanza
 
 export async function OPTIONS(req: NextRequest) {
   return preflight(req);
+}
+
+/** Auth opcional: si hay token válido → payload; si no → null */
+async function optionalAuth(
+  req: NextRequest
+): Promise<null | { sub: string; role?: string }> {
+  try {
+    const payload = await verifyJwtFromRequest(req); // implementá esto leyendo Authorization: Bearer ...
+    return payload as any;
+  } catch {
+    return null;
+  }
 }
 
 const itemSchema = z.object({
@@ -24,7 +36,9 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const origin = req.headers.get("origin");
   try {
-    const user = await requireAuth(req);
+    // 🔓 no exigimos login
+    const user = await optionalAuth(req);
+
     const { name, phone, address, notes, items } = schema.parse(
       await req.json()
     );
@@ -69,7 +83,7 @@ export async function POST(req: NextRequest) {
     const order = await prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
         data: {
-          userId: String(user.sub),
+          userId: user?.sub ?? null, // 👈 asociar si hay usuario; sino guest
           status: "pending",
           name,
           phone,
@@ -91,7 +105,7 @@ export async function POST(req: NextRequest) {
           },
         },
       });
-      // Nota: no descontamos stock aquí (pending). Lo hacemos al marcar paid.
+      // Nota: stock se descuenta al marcar "paid".
       return created;
     });
 
@@ -111,15 +125,23 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const origin = req.headers.get("origin");
   try {
-    const { sub } = await requireAuth(req);
+    // 🔒 sigue protegido: listar pedidos del usuario autenticado
+    const payload = await optionalAuth(req);
+    if (!payload?.sub) {
+      return new Response(
+        JSON.stringify({ error: "UNAUTHORIZED" }),
+        withCORS({ status: 401 }, origin)
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page") || 1));
     const limit = Math.min(50, Number(searchParams.get("limit") || 10));
 
     const [total, items] = await Promise.all([
-      prisma.order.count({ where: { userId: String(sub) } }),
+      prisma.order.count({ where: { userId: String(payload.sub) } }),
       prisma.order.findMany({
-        where: { userId: String(sub) },
+        where: { userId: String(payload.sub) },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,

@@ -14,7 +14,7 @@ async function optionalAuth(
 ): Promise<null | { sub: string; role?: string }> {
   try {
     const payload = await verifyJwtFromRequest(req); // implementá esto leyendo Authorization: Bearer ...
-    return payload as any;
+    return payload as { sub: string; role?: string };
   } catch {
     return null;
   }

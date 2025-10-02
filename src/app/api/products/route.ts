@@ -355,7 +355,7 @@ export async function POST(req: NextRequest) {
         basePrice: norm.basePrice,
         description: dto.description ?? null,
         size: dto.size ?? null, // compat
-        type: (dto as any).type ?? null, // compat
+        type: dto.type ?? null, // compat
         seasonLabel: norm.seasonLabel ?? null,
         seasonStart: norm.seasonStart ?? null,
         kit: norm.kit ?? null,

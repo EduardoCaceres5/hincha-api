@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
     const { search, kit, quality, seasonStart, sort, page, limit } = parsed;
 
     // Filtros (incluye metadatos nuevos; mantenemos ciertos campos legacy para compat)
-    const where = {
+    const where: any = {
       AND: [
         search && search.length > 0
           ? {
@@ -146,7 +146,7 @@ export async function GET(req: NextRequest) {
         quality ? { quality } : {},
         typeof seasonStart === "number" ? { seasonStart } : {},
       ],
-    } as const;
+    };
 
     // Orden (ampliamos whitelist)
     const [field, dir] = sort.split(":") as [string, "asc" | "desc"];

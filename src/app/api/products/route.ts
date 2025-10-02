@@ -128,6 +128,7 @@ export async function GET(req: NextRequest) {
     const { search, kit, quality, seasonStart, sort, page, limit } = parsed;
 
     // Filtros (incluye metadatos nuevos; mantenemos ciertos campos legacy para compat)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       AND: [
         search && search.length > 0

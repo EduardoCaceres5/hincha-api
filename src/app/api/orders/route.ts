@@ -31,6 +31,9 @@ const schema = z.object({
   address: z.string().min(5),
   notes: z.string().optional(),
   items: z.array(itemSchema).min(1),
+  customName: z.string().optional(),
+  customNumber: z.number().int().min(1).max(99).optional(),
+  hasPatch: z.boolean().default(false),
 });
 
 export async function POST(req: NextRequest) {
@@ -39,20 +42,37 @@ export async function POST(req: NextRequest) {
     // 🔓 no exigimos login
     const user = await optionalAuth(req);
 
-    const { name, phone, address, notes, items } = schema.parse(
-      await req.json()
-    );
+    const {
+      name,
+      phone,
+      address,
+      notes,
+      items,
+      customName,
+      customNumber,
+      hasPatch,
+    } = schema.parse(await req.json());
 
     const variantIds = items.map((i) => i.variantId);
     const variants = await prisma.productVariant.findMany({
-      where: { id: { in: variantIds } },
+      where: { name: { in: variantIds } },
       select: {
         id: true,
         name: true,
         stock: true,
         price: true,
         product: {
-          select: { id: true, title: true, price: true, imageUrl: true },
+          select: {
+            id: true,
+            title: true,
+            basePrice: true,
+            imageUrl: true,
+            imagePublicId: true,
+            seasonLabel: true,
+            seasonStart: true,
+            kit: true,
+            quality: true,
+          },
         },
       },
     });
@@ -66,7 +86,7 @@ export async function POST(req: NextRequest) {
     // Validar stock y calcular subtotal
     let subtotal = 0;
     for (const it of items) {
-      const v = variants.find((v) => v.id === it.variantId)!;
+      const v = variants.find((v) => v.name === it.variantId)!;
       if (v.stock < it.qty) {
         return new Response(
           JSON.stringify({
@@ -76,9 +96,21 @@ export async function POST(req: NextRequest) {
           withCORS({ status: 409 }, origin)
         );
       }
-      const unit = v.price ?? v.product.price;
+      const unit = v.price ?? v.product.basePrice;
       subtotal += unit * it.qty;
     }
+
+    // Calcular extras de personalización (ajustar precios según tu lógica)
+    const CUSTOM_NAME_PRICE = 15000; // Gs
+    const CUSTOM_NUMBER_PRICE = 10000; // Gs
+    const PATCH_PRICE = 20000; // Gs
+
+    let extras = 0;
+    if (customName) extras += CUSTOM_NAME_PRICE;
+    if (customNumber) extras += CUSTOM_NUMBER_PRICE;
+    if (hasPatch) extras += PATCH_PRICE;
+
+    const totalPrice = subtotal + extras;
 
     const order = await prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
@@ -90,12 +122,17 @@ export async function POST(req: NextRequest) {
           address,
           notes: notes ?? null,
           subtotal,
+          customName: customName ?? null,
+          customNumber: customNumber ?? null,
+          hasPatch: hasPatch ?? false,
+          totalPrice,
           items: {
             create: items.map((it) => {
-              const v = variants.find((v) => v.id === it.variantId)!;
-              const unit = v.price ?? v.product.price;
+              const v = variants.find((v) => v.name === it.variantId)!;
+              const unit = v.price ?? v.product.basePrice;
               return {
                 productId: v.product.id,
+                variantId: v.id,
                 title: `${v.product.title} (${v.name})`,
                 price: unit,
                 quantity: it.qty,
@@ -139,9 +176,8 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(50, Number(searchParams.get("limit") || 10));
 
     const [total, items] = await Promise.all([
-      prisma.order.count({ where: { userId: String(payload.sub) } }),
+      prisma.order.count(),
       prisma.order.findMany({
-        where: { userId: String(payload.sub) },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,

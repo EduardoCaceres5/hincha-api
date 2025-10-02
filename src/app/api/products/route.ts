@@ -1,4 +1,3 @@
-// src/app/api/products/route.ts
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { withCORS, preflight } from "@/lib/cors";
@@ -9,7 +8,11 @@ import { v2 as cloudinary } from "cloudinary";
 // Nos aseguramos Node runtime (subida a Cloudinary necesita Node APIs)
 export const runtime = "nodejs";
 
-// Config Cloudinary (usa variables del servidor)
+// ===== Enums (coinciden con schema.prisma) =====
+const KitEnum = z.enum(["HOME", "AWAY", "THIRD", "RETRO"]);
+const ProductQuality = z.enum(["FAN", "PLAYER"]);
+
+// ===== Cloudinary config =====
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
   api_key: process.env.CLOUDINARY_API_KEY!,
@@ -20,7 +23,7 @@ const CLOUD_NAME =
   process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
   process.env.CLOUDINARY_CLOUD_NAME;
 
-// Helpers
+// ===== Helpers =====
 function isAbsoluteUrl(u: string) {
   try {
     const x = new URL(u);
@@ -35,7 +38,22 @@ function makeCldUrl(publicId: string, transform = "f_auto,q_auto") {
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${transform}/${publicId}`;
 }
 
-// ── Schemas ────────────────────────────────────────────────────────────
+function normalizeBaseAndQuality(base: z.infer<typeof BaseSchema>) {
+  // basePrice preferido, si no viene tomamos legacy price
+  const basePrice = base.basePrice ?? base.price;
+  // quality preferida; si no viene mapeamos legacy type → quality
+  const quality =
+    base.quality ??
+    (base.type === "PLAYER_VERSION"
+      ? "PLAYER"
+      : base.type === "FAN"
+      ? "FAN"
+      : undefined);
+
+  return { ...base, basePrice, quality };
+}
+
+// ===== Schemas =====
 const VariantSchema = z.object({
   name: z.string().min(1),
   stock: z.coerce.number().int().min(0),
@@ -44,10 +62,22 @@ const VariantSchema = z.object({
 
 const BaseSchema = z.object({
   title: z.string().min(2),
-  price: z.coerce.number().int().min(0),
+
+  // compat + nuevo
+  basePrice: z.coerce.number().int().min(0).optional(),
+  price: z.coerce.number().int().min(0).optional(), // legacy
+
   description: z.string().optional(),
-  size: z.string().optional(),
-  condition: z.enum(["Nuevo", "Usado"]).optional(),
+  size: z.string().optional(), // si luego lo eliminás del modelo, quítalo en otra migración
+
+  // legacy 'type' → quality
+  type: z.enum(["FAN", "PLAYER_VERSION"]).optional(),
+
+  // nuevos metadatos
+  seasonLabel: z.string().max(20).optional(),
+  seasonStart: z.coerce.number().int().min(1900).max(2100).optional(),
+  kit: KitEnum.optional(),
+  quality: ProductQuality.optional(),
 });
 
 const CreateJsonSchema = BaseSchema.extend({
@@ -59,6 +89,7 @@ const CreateJsonSchema = BaseSchema.extend({
   path: ["imageUrl"],
 });
 
+// ========== CORS (preflight) ==========
 export async function OPTIONS(req: NextRequest) {
   return preflight(req);
 }
@@ -69,7 +100,13 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const QuerySchema = z.object({
+      // búsqueda simple
       search: z.string().trim().optional(),
+      // filtros nuevos (opcionales)
+      kit: KitEnum.optional(),
+      quality: ProductQuality.optional(),
+      seasonStart: z.coerce.number().int().optional(),
+      // orden y paginación
       sort: z
         .string()
         .regex(/^[a-zA-Z_]+:(asc|desc)$/)
@@ -78,27 +115,42 @@ export async function GET(req: NextRequest) {
       limit: z.coerce.number().int().min(1).max(50).default(12),
     });
 
-    const { search, sort, page, limit } = QuerySchema.parse({
+    const parsed = QuerySchema.parse({
       search: url.searchParams.get("search") ?? undefined,
+      kit: url.searchParams.get("kit") ?? undefined,
+      quality: url.searchParams.get("quality") ?? undefined,
+      seasonStart: url.searchParams.get("seasonStart") ?? undefined,
       sort: url.searchParams.get("sort") ?? undefined,
       page: url.searchParams.get("page") ?? undefined,
       limit: url.searchParams.get("limit") ?? undefined,
     });
 
-    const where =
-      search && search.length > 0
-        ? {
-            OR: [
-              { title: { contains: search } },
-              { description: { contains: search } },
-              { size: { contains: search } },
-              { condition: { contains: search } },
-            ],
-          }
-        : {};
+    const { search, kit, quality, seasonStart, sort, page, limit } = parsed;
 
+    // Filtros (incluye metadatos nuevos; mantenemos ciertos campos legacy para compat)
+    const where = {
+      AND: [
+        search && search.length > 0
+          ? {
+              OR: [
+                { title: { contains: search, mode: "insensitive" } },
+                { description: { contains: search, mode: "insensitive" } },
+                { seasonLabel: { contains: search, mode: "insensitive" } },
+                // compat (si aún existen en tu modelo)
+                { size: { contains: search, mode: "insensitive" } },
+                { type: { contains: search, mode: "insensitive" } },
+              ],
+            }
+          : {},
+        kit ? { kit } : {},
+        quality ? { quality } : {},
+        typeof seasonStart === "number" ? { seasonStart } : {},
+      ],
+    } as const;
+
+    // Orden (ampliamos whitelist)
     const [field, dir] = sort.split(":") as [string, "asc" | "desc"];
-    const allowed = new Set(["createdAt", "price", "title"]);
+    const allowed = new Set(["createdAt", "title", "basePrice", "seasonStart"]);
     const orderBy = allowed.has(field)
       ? ({ [field]: dir } as const)
       : ({ createdAt: "desc" } as const);
@@ -113,22 +165,29 @@ export async function GET(req: NextRequest) {
         select: {
           id: true,
           title: true,
-          price: true,
+          basePrice: true, // ← nuevo
           description: true,
-          size: true,
-          condition: true,
+          // imagen
           imageUrl: true,
           imagePublicId: true,
+          // metadatos nuevos
+          seasonLabel: true,
+          seasonStart: true,
+          kit: true,
+          quality: true,
           createdAt: true,
+          // variantes si necesitás en listing:
+          ProductVariant: {
+            select: { id: true, name: true, stock: true, price: true },
+          },
         },
       }),
     ]);
 
-    // Aseguramos que imageUrl sea una URL Cloudinary válida, aun si solo hay publicId
+    // Garantizamos imageUrl válida con Cloudinary si hay publicId
     const items = rawItems.map((p) => {
       let url = p.imageUrl ?? "";
       if (!url && p.imagePublicId) url = makeCldUrl(p.imagePublicId);
-      // Si imageUrl existe pero no es absoluta (por ej guardaron publicId por error)
       if (url && !isAbsoluteUrl(url) && p.imagePublicId) {
         url = makeCldUrl(p.imagePublicId);
       }
@@ -163,10 +222,18 @@ export async function POST(req: NextRequest) {
     const ct = req.headers.get("content-type") || "";
     let dataForDb: {
       title: string;
-      price: number;
+      basePrice: number;
       description: string | null;
+      // legacy (mantenelos hasta limpiar modelo/UX)
       size: string | null;
-      condition: "Nuevo" | "Usado" | null;
+      type: "FAN" | "PLAYER_VERSION" | null;
+
+      // nuevos metadatos
+      seasonLabel: string | null;
+      seasonStart: number | null;
+      kit: z.infer<typeof KitEnum> | null;
+      quality: z.infer<typeof ProductQuality> | null;
+
       imageUrl: string;
       imagePublicId: string | null;
       variants: z.infer<typeof VariantSchema>[];
@@ -178,11 +245,30 @@ export async function POST(req: NextRequest) {
 
       const base = BaseSchema.parse({
         title: fd.get("title"),
-        price: fd.get("price"),
+        basePrice: fd.get("basePrice"),
+        price: fd.get("price"), // compat
         description: fd.get("description") || undefined,
-        size: fd.get("size") || undefined,
-        condition: fd.get("condition") || undefined,
+        size: fd.get("size") || undefined, // compat
+        type: fd.get("type") || undefined, // compat
+        seasonLabel: fd.get("seasonLabel") || undefined,
+        seasonStart: fd.get("seasonStart") || undefined,
+        kit: fd.get("kit") || undefined,
+        quality: fd.get("quality") || undefined,
       });
+      const norm = normalizeBaseAndQuality(base);
+
+      if (typeof norm.basePrice !== "number") {
+        return new Response(
+          JSON.stringify({
+            error: "BAD_REQUEST",
+            message: "basePrice o price requeridos",
+          }),
+          withCORS(
+            { status: 400, headers: { "Content-Type": "application/json" } },
+            origin
+          )
+        );
+      }
 
       // variants (string JSON)
       const raw = fd.get("variants");
@@ -191,7 +277,7 @@ export async function POST(req: NextRequest) {
         .min(1)
         .parse(typeof raw === "string" ? JSON.parse(raw) : raw);
 
-      // Imagen obligatoria
+      // Imagen obligatoria (aquí subimos a Cloudinary)
       const imageEntry = fd.get("image");
       if (!(imageEntry instanceof File)) {
         return new Response(
@@ -202,8 +288,6 @@ export async function POST(req: NextRequest) {
           )
         );
       }
-
-      // Subida a Cloudinary
       const bytes = Buffer.from(await imageEntry.arrayBuffer());
       const dataUri = `data:${imageEntry.type};base64,${bytes.toString(
         "base64"
@@ -218,11 +302,15 @@ export async function POST(req: NextRequest) {
 
       dataForDb = {
         title: base.title,
-        price: base.price,
+        basePrice: norm.basePrice,
         description: base.description ?? null,
-        size: base.size ?? null,
-        condition: base.condition ?? null,
-        imageUrl: secure_url, // https
+        size: base.size ?? null, // compat
+        type: base.type ?? null, // compat
+        seasonLabel: norm.seasonLabel ?? null,
+        seasonStart: norm.seasonStart ?? null,
+        kit: norm.kit ?? null,
+        quality: norm.quality ?? null,
+        imageUrl: secure_url,
         imagePublicId: public_id,
         variants,
       };
@@ -230,12 +318,26 @@ export async function POST(req: NextRequest) {
       // -------- application/json --------
       const json = await req.json();
       const dto = CreateJsonSchema.parse(json);
+      const norm = normalizeBaseAndQuality(dto);
+
+      if (typeof norm.basePrice !== "number") {
+        return new Response(
+          JSON.stringify({
+            error: "BAD_REQUEST",
+            message: "basePrice o price requeridos",
+          }),
+          withCORS(
+            { status: 400, headers: { "Content-Type": "application/json" } },
+            origin
+          )
+        );
+      }
 
       // Si mandan sólo publicId, construimos URL de delivery; si mandan ambos, usamos imageUrl
-      const imageUrl =
+      const effectiveImageUrl =
         dto.imageUrl ??
         (dto.imagePublicId ? makeCldUrl(dto.imagePublicId) : "");
-      if (!imageUrl) {
+      if (!effectiveImageUrl) {
         return new Response(
           JSON.stringify({
             error: "BAD_REQUEST",
@@ -250,11 +352,15 @@ export async function POST(req: NextRequest) {
 
       dataForDb = {
         title: dto.title,
-        price: dto.price,
+        basePrice: norm.basePrice,
         description: dto.description ?? null,
-        size: dto.size ?? null,
-        condition: dto.condition ?? null,
-        imageUrl,
+        size: dto.size ?? null, // compat
+        type: (dto as any).type ?? null, // compat
+        seasonLabel: norm.seasonLabel ?? null,
+        seasonStart: norm.seasonStart ?? null,
+        kit: norm.kit ?? null,
+        quality: norm.quality ?? null,
+        imageUrl: effectiveImageUrl,
         imagePublicId: dto.imagePublicId ?? null,
         variants: dto.variants,
       };
@@ -263,13 +369,23 @@ export async function POST(req: NextRequest) {
     const created = await prisma.product.create({
       data: {
         title: dataForDb.title,
-        price: dataForDb.price,
         description: dataForDb.description,
-        size: dataForDb.size,
-        condition: dataForDb.condition,
+        basePrice: dataForDb.basePrice,
+
+        // metadatos nuevos
+        seasonLabel: dataForDb.seasonLabel,
+        seasonStart: dataForDb.seasonStart,
+        kit: dataForDb.kit,
+        quality: dataForDb.quality,
+
+        // imagen
         imageUrl: dataForDb.imageUrl,
         imagePublicId: dataForDb.imagePublicId,
+
+        // owner
         ownerId: String(sub),
+
+        // variantes
         ProductVariant: { createMany: { data: dataForDb.variants } },
       },
       include: { ProductVariant: true },

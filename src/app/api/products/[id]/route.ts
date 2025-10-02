@@ -72,7 +72,7 @@ const updateSchema = z.object({
   title: z.string().min(3).optional(),
   price: z.coerce.number().int().min(0).optional(),
   size: z.string().nullable().optional(),
-  condition: z.string().nullable().optional(),
+  type: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   imageUrl: z.string().url().optional(),
 });
@@ -113,7 +113,7 @@ export async function PUT(
         "title",
         "price",
         "size",
-        "condition",
+        "type",
         "description",
       ] as const) {
         const v = form.get(k);
@@ -128,8 +128,8 @@ export async function PUT(
             case "size":
               data.size = v;
               break;
-            case "condition":
-              data.condition = v;
+            case "type":
+              data.type = v;
               break;
             case "description":
               data.description = v;

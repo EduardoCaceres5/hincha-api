@@ -4,8 +4,21 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")   // ← pooler (PgBouncer, 6543)
-  directUrl = env("DIRECT_URL")     // ← directo (5432) para migraciones
+  url       = env("DATABASE_URL") // ← pooler (PgBouncer, 6543)
+  directUrl = env("DIRECT_URL") // ← directo (5432) para migraciones
+}
+
+// === Enums ===
+enum ProductQuality {
+  FAN
+  PLAYER_VERSION
+}
+
+enum KitType {
+  HOME
+  AWAY
+  THIRD
+  RETRO
 }
 
 model User {
@@ -23,60 +36,78 @@ model User {
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  title       String
-  price       Int
-  size        String?
-  condition   String?
-  description String?
-  imageUrl    String
-  imagePublicId String?
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  id             String           @id @default(cuid())
+  title          String
+  description    String?
+  basePrice      Int // ← antes era price
+  imageUrl       String
+  imagePublicId  String?
+  // Metadatos:
+  seasonLabel    String?
+  seasonStart    Int?
+  kit            KitType?
+  quality        ProductQuality?
+  // Relación:
   ProductVariant ProductVariant[]
+  ownerId        String
+  owner          User             @relation(fields: [ownerId], references: [id])
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  OrderItem      OrderItem[]
 
-  OrderItem OrderItem[]
+  @@index([seasonStart])
+  @@index([kit])
+  @@index([quality])
 }
 
 model ProductVariant {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku       String? @unique
-  name      String  // ej: "S", "M", "L" (talle visible)
-  stock     Int     @default(0)
-  price     Int?    // opcional: precio por variante (si null, usar product.price)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String // "S","M","L" o "Única"
+  sku       String?  @unique
+  stock     Int      @default(0)
+  price     Int? // override opcional de basePrice
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  @@unique([productId, name]) // evita talles duplicados
   @@index([productId])
-  @@unique([productId, name]) // evita variantes duplicadas por nombre
 }
 
 model Order {
-  id         String       @id @default(cuid())
-  userId     String?
-  user       User?        @relation(fields: [userId], references: [id])
-  status     String       @default("pending") // pending | paid | canceled
-  name       String
-  phone      String
-  address    String
-  notes      String?
-  subtotal   Int          // en Gs (sin decimales)
-  createdAt  DateTime     @default(now())
-  items      OrderItem[]
+  id       String  @id @default(cuid())
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id])
+  status   String  @default("pending") // pending | paid | canceled
+  name     String
+  phone    String
+  address  String
+  notes    String?
+  subtotal Int // en Gs (sin decimales)
+
+  // --- Personalización a nivel Orden ---
+  customName   String?
+  customNumber Int?
+  hasPatch     Boolean @default(false)
+
+  // --- Total final del pedido (subtotal + extras) ---
+  totalPrice Int
+
+  createdAt DateTime    @default(now())
+  items     OrderItem[]
 }
 
 model OrderItem {
-  id         String   @id @default(cuid())
-  orderId    String
-  order      Order    @relation(fields: [orderId], references: [id])
-  productId  String
-  product   Product  @relation(fields: [productId], references: [id])
-  variantId  String?  
-  title      String
-  price      Int      // precio unitario en Gs
-  quantity   Int
-  imageUrl   String
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  variantId String?
+  title     String
+  price     Int // precio unitario en Gs
+  quantity  Int
+  imageUrl  String
 }

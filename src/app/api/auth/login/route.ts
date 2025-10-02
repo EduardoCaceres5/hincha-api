@@ -36,7 +36,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const accessToken = await signJWT({ sub: user.id, email: user.email });
+    const accessToken = await signJWT({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+    });
     return new Response(
       JSON.stringify({ accessToken }),
       withCORS({ status: 200 }, origin)

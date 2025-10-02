@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       select: {
         id: true,
         title: true,
-        price: true,
+        basePrice: true,
         imageUrl: true,
         createdAt: true,
         ProductVariant: {
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     const items = products.map((p) => ({
       id: p.id,
       title: p.title,
-      price: p.price,
+      price: p.basePrice,
       imageUrl: p.imageUrl,
       createdAt: p.createdAt,
       variants: p.ProductVariant, // alias amigable

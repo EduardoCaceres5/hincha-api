@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 
 // ===== Enums (coinciden con schema.prisma) =====
 const KitEnum = z.enum(["HOME", "AWAY", "THIRD", "RETRO"]);
-const ProductQuality = z.enum(["FAN", "PLAYER"]);
+const ProductQuality = z.enum(["FAN", "PLAYER_VERSION"]);
 
 // ===== Cloudinary config =====
 cloudinary.config({
@@ -45,7 +45,7 @@ function normalizeBaseAndQuality(base: z.infer<typeof BaseSchema>) {
   const quality =
     base.quality ??
     (base.type === "PLAYER_VERSION"
-      ? "PLAYER"
+      ? "PLAYER_VERSION"
       : base.type === "FAN"
       ? "FAN"
       : undefined);

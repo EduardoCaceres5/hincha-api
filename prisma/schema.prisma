@@ -86,6 +86,8 @@ model Order {
   address  String
   notes    String?
   subtotal Int // en Gs (sin decimales)
+  lat      Float?
+  lng      Float?
 
   // --- Personalización a nivel Orden ---
   customName   String?

@@ -34,6 +34,8 @@ const schema = z.object({
   customName: z.string().optional(),
   customNumber: z.number().int().min(1).max(99).optional(),
   hasPatch: z.boolean().default(false),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -51,6 +53,8 @@ export async function POST(req: NextRequest) {
       customName,
       customNumber,
       hasPatch,
+      lat,
+      lng,
     } = schema.parse(await req.json());
 
     const variantIds = items.map((i) => i.variantId);
@@ -122,6 +126,8 @@ export async function POST(req: NextRequest) {
           address,
           notes: notes ?? null,
           subtotal,
+          lat: lat ?? null,
+          lng: lng ?? null,
           customName: customName ?? null,
           customNumber: customNumber ?? null,
           hasPatch: hasPatch ?? false,

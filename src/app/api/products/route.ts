@@ -203,6 +203,7 @@ export async function GET(req: NextRequest) {
       )
     );
   } catch (err: unknown) {
+    console.error("Error en POST /api/products:", err);
     const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
     return new Response(
       JSON.stringify({ error: "BAD_REQUEST", message }),
@@ -400,6 +401,7 @@ export async function POST(req: NextRequest) {
       )
     );
   } catch (err: unknown) {
+    console.error("Error en POST /api/products:", err);
     const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
     return new Response(
       JSON.stringify({ error: "BAD_REQUEST", message }),

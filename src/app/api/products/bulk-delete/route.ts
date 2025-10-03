@@ -28,9 +28,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Traer solo productos del dueño
+    // Traer productos
     const products = await prisma.product.findMany({
-      where: { id: { in: ids }, ownerId: String(user.sub) },
+      where: { id: { in: ids } },
       select: { id: true, imagePublicId: true },
     });
     if (products.length === 0) {
@@ -54,7 +54,6 @@ export async function POST(req: NextRequest) {
       prisma.product.deleteMany({
         where: {
           id: { in: products.map((p) => p.id) },
-          ownerId: String(user.sub),
         },
       }),
     ]);

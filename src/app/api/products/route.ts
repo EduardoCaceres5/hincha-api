@@ -246,6 +246,11 @@ export async function POST(req: NextRequest) {
       imageUrl: string;
       imagePublicId: string | null;
       variants: z.infer<typeof VariantSchema>[];
+      additionalImages?: Array<{
+        imageUrl: string;
+        imagePublicId: string;
+        order: number;
+      }>;
     };
 
     if (ct.includes("multipart/form-data")) {
@@ -285,28 +290,75 @@ export async function POST(req: NextRequest) {
         .min(1)
         .parse(typeof raw === "string" ? JSON.parse(raw) : raw);
 
-      // Imagen obligatoria (aquí subimos a Cloudinary)
-      const imageEntry = fd.get("image");
-      if (!(imageEntry instanceof File)) {
+      // Imágenes (soporta "image" singular o "images" múltiple)
+      const imageFiles: File[] = [];
+      const singleImage = fd.get("image");
+      const multipleImages = fd.getAll("images");
+
+      if (singleImage instanceof File) {
+        imageFiles.push(singleImage);
+      } else if (multipleImages.length > 0) {
+        for (const img of multipleImages) {
+          if (img instanceof File) imageFiles.push(img);
+        }
+      }
+
+      if (imageFiles.length === 0) {
         return new Response(
-          JSON.stringify({ error: "BAD_REQUEST", message: "Imagen requerida" }),
+          JSON.stringify({ error: "BAD_REQUEST", message: "Al menos una imagen es requerida" }),
           withCORS(
             { status: 400, headers: { "Content-Type": "application/json" } },
             origin
           )
         );
       }
-      const bytes = Buffer.from(await imageEntry.arrayBuffer());
-      const dataUri = `data:${imageEntry.type};base64,${bytes.toString(
+
+      // Subir primera imagen como principal
+      const mainImageFile = imageFiles[0];
+      const mainBytes = Buffer.from(await mainImageFile.arrayBuffer());
+      const mainDataUri = `data:${mainImageFile.type};base64,${mainBytes.toString(
         "base64"
       )}`;
-      const { secure_url, public_id } = await cloudinary.uploader.upload(
-        dataUri,
+      const mainUpload = await cloudinary.uploader.upload(
+        mainDataUri,
         {
           folder: "hincha/products",
           resource_type: "image",
         }
       );
+
+      // Subir TODAS las imágenes a ProductImage (incluida la principal)
+      const additionalImages: Array<{
+        imageUrl: string;
+        imagePublicId: string;
+        order: number;
+      }> = [];
+
+      // Agregar la primera imagen también a ProductImage
+      additionalImages.push({
+        imageUrl: mainUpload.secure_url,
+        imagePublicId: mainUpload.public_id,
+        order: 0,
+      });
+
+      // Subir el resto de las imágenes
+      for (let i = 1; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+        const bytes = Buffer.from(await file.arrayBuffer());
+        const dataUri = `data:${file.type};base64,${bytes.toString("base64")}`;
+        const { secure_url, public_id } = await cloudinary.uploader.upload(
+          dataUri,
+          {
+            folder: "hincha/products",
+            resource_type: "image",
+          }
+        );
+        additionalImages.push({
+          imageUrl: secure_url,
+          imagePublicId: public_id,
+          order: i,
+        });
+      }
 
       dataForDb = {
         title: base.title,
@@ -316,9 +368,10 @@ export async function POST(req: NextRequest) {
         seasonStart: norm.seasonStart ?? null,
         kit: norm.kit ?? null,
         quality: norm.quality ?? null,
-        imageUrl: secure_url,
-        imagePublicId: public_id,
+        imageUrl: mainUpload.secure_url,
+        imagePublicId: mainUpload.public_id,
         variants,
+        additionalImages,
       };
     } else {
       // -------- application/json --------
@@ -391,6 +444,11 @@ export async function POST(req: NextRequest) {
 
         // variantes
         ProductVariant: { createMany: { data: dataForDb.variants } },
+
+        // todas las imágenes en ProductImage
+        ProductImage: dataForDb.additionalImages && dataForDb.additionalImages.length > 0
+          ? { createMany: { data: dataForDb.additionalImages } }
+          : undefined,
       },
       include: {
         ProductVariant: true,

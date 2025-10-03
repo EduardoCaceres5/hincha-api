@@ -68,7 +68,6 @@ const BaseSchema = z.object({
   price: z.coerce.number().int().min(0).optional(), // legacy
 
   description: z.string().optional(),
-  size: z.string().optional(), // si luego lo eliminás del modelo, quítalo en otra migración
 
   // legacy 'type' → quality
   type: z.enum(["FAN", "PLAYER_VERSION"]).optional(),
@@ -137,9 +136,6 @@ export async function GET(req: NextRequest) {
                 { title: { contains: search, mode: "insensitive" } },
                 { description: { contains: search, mode: "insensitive" } },
                 { seasonLabel: { contains: search, mode: "insensitive" } },
-                // compat (si aún existen en tu modelo)
-                { size: { contains: search, mode: "insensitive" } },
-                { type: { contains: search, mode: "insensitive" } },
               ],
             }
           : {},
@@ -203,7 +199,7 @@ export async function GET(req: NextRequest) {
       )
     );
   } catch (err: unknown) {
-    console.error("Error en POST /api/products:", err);
+    console.error("Error en GET /api/products:", err);
     const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
     return new Response(
       JSON.stringify({ error: "BAD_REQUEST", message }),
@@ -226,9 +222,6 @@ export async function POST(req: NextRequest) {
       title: string;
       basePrice: number;
       description: string | null;
-      // legacy (mantenelos hasta limpiar modelo/UX)
-      size: string | null;
-      type: "FAN" | "PLAYER_VERSION" | null;
 
       // nuevos metadatos
       seasonLabel: string | null;
@@ -250,7 +243,6 @@ export async function POST(req: NextRequest) {
         basePrice: fd.get("basePrice"),
         price: fd.get("price"), // compat
         description: fd.get("description") || undefined,
-        size: fd.get("size") || undefined, // compat
         type: fd.get("type") || undefined, // compat
         seasonLabel: fd.get("seasonLabel") || undefined,
         seasonStart: fd.get("seasonStart") || undefined,
@@ -306,8 +298,6 @@ export async function POST(req: NextRequest) {
         title: base.title,
         basePrice: norm.basePrice,
         description: base.description ?? null,
-        size: base.size ?? null, // compat
-        type: base.type ?? null, // compat
         seasonLabel: norm.seasonLabel ?? null,
         seasonStart: norm.seasonStart ?? null,
         kit: norm.kit ?? null,
@@ -356,8 +346,6 @@ export async function POST(req: NextRequest) {
         title: dto.title,
         basePrice: norm.basePrice,
         description: dto.description ?? null,
-        size: dto.size ?? null, // compat
-        type: dto.type ?? null, // compat
         seasonLabel: norm.seasonLabel ?? null,
         seasonStart: norm.seasonStart ?? null,
         kit: norm.kit ?? null,

@@ -13,9 +13,8 @@ export async function GET(req: NextRequest) {
   const page = Number(searchParams.get("page") || 1);
   const limit = Math.min(Number(searchParams.get("limit") || 12), 50);
   const [total, items] = await Promise.all([
-    prisma.product.count({ where: { ownerId: String(sub) } }),
+    prisma.product.count(),
     prisma.product.findMany({
-      where: { ownerId: String(sub) },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,

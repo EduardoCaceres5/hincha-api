@@ -34,10 +34,19 @@ export async function GET(req: NextRequest) {
             sku: true,
           },
         },
+        ProductImage: {
+          select: {
+            id: true,
+            imageUrl: true,
+            imagePublicId: true,
+            order: true,
+          },
+          orderBy: { order: "asc" },
+        },
       },
     });
 
-    // Mapeo a "variants" para el front
+    // Mapeo a "variants" e "images" para el front
     const items = products.map((p) => ({
       id: p.id,
       title: p.title,
@@ -45,6 +54,7 @@ export async function GET(req: NextRequest) {
       imageUrl: p.imageUrl,
       createdAt: p.createdAt,
       variants: p.ProductVariant, // alias amigable
+      images: p.ProductImage, // imágenes adicionales
     }));
 
     return new Response(

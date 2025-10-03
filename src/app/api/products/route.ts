@@ -79,10 +79,19 @@ const BaseSchema = z.object({
   quality: ProductQuality.optional(),
 });
 
+const ImageSchema = z.object({
+  imageUrl: z.string().url().optional(),
+  imagePublicId: z.string().min(1).optional(),
+  order: z.coerce.number().int().min(0).default(0),
+}).refine((d) => !!d.imageUrl || !!d.imagePublicId, {
+  message: "Debe proveer imageUrl o imagePublicId",
+});
+
 const CreateJsonSchema = BaseSchema.extend({
   variants: z.array(VariantSchema).min(1),
   imageUrl: z.string().url().optional(),
   imagePublicId: z.string().min(1).optional(),
+  images: z.array(ImageSchema).optional(),
 }).refine((d) => !!d.imageUrl || !!d.imagePublicId, {
   message: "Debe proveer imageUrl o imagePublicId",
   path: ["imageUrl"],
@@ -176,6 +185,11 @@ export async function GET(req: NextRequest) {
           // variantes si necesitás en listing:
           ProductVariant: {
             select: { id: true, name: true, stock: true, price: true },
+          },
+          // múltiples imágenes
+          ProductImage: {
+            select: { id: true, imageUrl: true, imagePublicId: true, order: true },
+            orderBy: { order: "asc" },
           },
         },
       }),
@@ -378,7 +392,10 @@ export async function POST(req: NextRequest) {
         // variantes
         ProductVariant: { createMany: { data: dataForDb.variants } },
       },
-      include: { ProductVariant: true },
+      include: {
+        ProductVariant: true,
+        ProductImage: true,
+      },
     });
 
     return new Response(

@@ -44,6 +44,15 @@ export async function GET(
             sku: true,
           },
         },
+        ProductImage: {
+          select: {
+            id: true,
+            imageUrl: true,
+            imagePublicId: true,
+            order: true,
+          },
+          orderBy: { order: "asc" },
+        },
       },
     });
 
@@ -193,6 +202,10 @@ export async function PUT(
           ? { imageUrl: newImageUrl, imagePublicId: newPublicId }
           : {}),
       },
+      include: {
+        ProductVariant: true,
+        ProductImage: true,
+      },
     });
 
     return new Response(
@@ -217,6 +230,7 @@ export async function DELETE(
     const user = await requireAuth(req);
     const existing = await prisma.product.findUnique({
       where: { id: id },
+      include: { ProductImage: true },
     });
     if (!existing)
       return new Response(
@@ -229,11 +243,22 @@ export async function DELETE(
         withCORS({ status: 403 }, req.headers.get("origin"))
       );
 
+    // Eliminar imagen principal
     if (existing.imagePublicId) {
       try {
         await cloudinary.uploader.destroy(existing.imagePublicId);
       } catch {}
     }
+
+    // Eliminar imágenes adicionales
+    for (const img of existing.ProductImage) {
+      if (img.imagePublicId) {
+        try {
+          await cloudinary.uploader.destroy(img.imagePublicId);
+        } catch {}
+      }
+    }
+
     await prisma.product.delete({ where: { id: existing.id } });
     return new Response(
       null,

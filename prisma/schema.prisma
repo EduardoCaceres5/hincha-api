@@ -47,6 +47,7 @@ model Product {
   seasonStart    Int?
   kit            KitType?
   quality        ProductQuality?
+  league         String?
   // Relación:
   ProductVariant ProductVariant[]
   ProductImage   ProductImage[]
@@ -59,6 +60,7 @@ model Product {
   @@index([seasonStart])
   @@index([kit])
   @@index([quality])
+  @@index([league])
 }
 
 model ProductImage {

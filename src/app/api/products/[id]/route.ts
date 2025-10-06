@@ -84,6 +84,7 @@ const updateSchema = z.object({
   type: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   imageUrl: z.string().url().optional(),
+  league: z.string().max(50).nullable().optional(),
 });
 
 // Strongly-typed payload inferred from Zod schema
@@ -124,6 +125,7 @@ export async function PUT(
         "size",
         "type",
         "description",
+        "league",
       ] as const) {
         const v = form.get(k);
         if (typeof v === "string" && v !== "") {
@@ -142,6 +144,9 @@ export async function PUT(
               break;
             case "description":
               data.description = v;
+              break;
+            case "league":
+              data.league = v;
               break;
           }
         }

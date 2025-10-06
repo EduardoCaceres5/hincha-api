@@ -77,6 +77,7 @@ const BaseSchema = z.object({
   seasonStart: z.coerce.number().int().min(1900).max(2100).optional(),
   kit: KitEnum.optional(),
   quality: ProductQuality.optional(),
+  league: z.string().max(50).optional(),
 });
 
 const ImageSchema = z.object({
@@ -114,6 +115,7 @@ export async function GET(req: NextRequest) {
       kit: KitEnum.optional(),
       quality: ProductQuality.optional(),
       seasonStart: z.coerce.number().int().optional(),
+      league: z.string().optional(),
       // orden y paginación
       sort: z
         .string()
@@ -128,12 +130,13 @@ export async function GET(req: NextRequest) {
       kit: url.searchParams.get("kit") ?? undefined,
       quality: url.searchParams.get("quality") ?? undefined,
       seasonStart: url.searchParams.get("seasonStart") ?? undefined,
+      league: url.searchParams.get("league") ?? undefined,
       sort: url.searchParams.get("sort") ?? undefined,
       page: url.searchParams.get("page") ?? undefined,
       limit: url.searchParams.get("limit") ?? undefined,
     });
 
-    const { search, kit, quality, seasonStart, sort, page, limit } = parsed;
+    const { search, kit, quality, seasonStart, league, sort, page, limit } = parsed;
 
     // Filtros (incluye metadatos nuevos; mantenemos ciertos campos legacy para compat)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -151,6 +154,7 @@ export async function GET(req: NextRequest) {
         kit ? { kit } : {},
         quality ? { quality } : {},
         typeof seasonStart === "number" ? { seasonStart } : {},
+        league ? { league: { contains: league, mode: "insensitive" } } : {},
       ],
     };
 
@@ -181,6 +185,7 @@ export async function GET(req: NextRequest) {
           seasonStart: true,
           kit: true,
           quality: true,
+          league: true,
           createdAt: true,
           // variantes si necesitás en listing:
           ProductVariant: {
@@ -242,6 +247,7 @@ export async function POST(req: NextRequest) {
       seasonStart: number | null;
       kit: z.infer<typeof KitEnum> | null;
       quality: z.infer<typeof ProductQuality> | null;
+      league: string | null;
 
       imageUrl: string;
       imagePublicId: string | null;
@@ -267,6 +273,7 @@ export async function POST(req: NextRequest) {
         seasonStart: fd.get("seasonStart") || undefined,
         kit: fd.get("kit") || undefined,
         quality: fd.get("quality") || undefined,
+        league: fd.get("league") || undefined,
       });
       const norm = normalizeBaseAndQuality(base);
 
@@ -368,6 +375,7 @@ export async function POST(req: NextRequest) {
         seasonStart: norm.seasonStart ?? null,
         kit: norm.kit ?? null,
         quality: norm.quality ?? null,
+        league: norm.league ?? null,
         imageUrl: mainUpload.secure_url,
         imagePublicId: mainUpload.public_id,
         variants,
@@ -417,6 +425,7 @@ export async function POST(req: NextRequest) {
         seasonStart: norm.seasonStart ?? null,
         kit: norm.kit ?? null,
         quality: norm.quality ?? null,
+        league: norm.league ?? null,
         imageUrl: effectiveImageUrl,
         imagePublicId: dto.imagePublicId ?? null,
         variants: dto.variants,
@@ -434,6 +443,7 @@ export async function POST(req: NextRequest) {
         seasonStart: dataForDb.seasonStart,
         kit: dataForDb.kit,
         quality: dataForDb.quality,
+        league: dataForDb.league,
 
         // imagen
         imageUrl: dataForDb.imageUrl,

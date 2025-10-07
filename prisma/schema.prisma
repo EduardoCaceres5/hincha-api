@@ -21,6 +21,12 @@ enum KitType {
   RETRO
 }
 
+// Transacciones financieras (ingresos/egresos)
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -33,6 +39,8 @@ model User {
   Product Product[]
 
   Order Order[]
+
+  Transaction Transaction[]
 }
 
 model Product {
@@ -129,4 +137,34 @@ model OrderItem {
   price     Int // precio unitario en Gs
   quantity  Int
   imageUrl  String
+}
+
+// === Finanzas ===
+model Transaction {
+  id           String          @id @default(cuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id])
+  type         TransactionType
+  amount       Int             // monto en Gs (positivo). El tipo define ingreso/egreso
+  description  String?
+  category     String?         // opcional: etiqueta libre ("proveedor", "envío", etc.)
+  occurredAt   DateTime        @default(now()) // fecha efectiva del movimiento
+  createdAt    DateTime        @default(now())
+  // Imágenes asociadas (opcional, similar a ProductImage)
+  TransactionImage TransactionImage[]
+
+  @@index([userId, occurredAt])
+  @@index([type])
+}
+
+model TransactionImage {
+  id            String       @id @default(cuid())
+  transactionId String
+  transaction   Transaction  @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  imageUrl      String
+  imagePublicId String?
+  order         Int          @default(0)
+  createdAt     DateTime     @default(now())
+
+  @@index([transactionId])
 }

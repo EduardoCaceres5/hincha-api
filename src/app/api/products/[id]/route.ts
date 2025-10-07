@@ -76,15 +76,21 @@ export async function GET(
   }
 }
 
-// PUT /api/products/:id (protegido, solo dueño)
+// PUT /api/products/:id
+const KitEnum = z.enum(["HOME", "AWAY", "THIRD", "RETRO"]);
+const ProductQuality = z.enum(["FAN", "PLAYER_VERSION"]);
+
 const updateSchema = z.object({
   title: z.string().min(3).optional(),
-  price: z.coerce.number().int().min(0).optional(),
-  size: z.string().nullable().optional(),
-  type: z.string().nullable().optional(),
+  basePrice: z.coerce.number().int().min(0).optional(),
   description: z.string().nullable().optional(),
-  imageUrl: z.string().url().optional(),
+  seasonLabel: z.string().max(20).nullable().optional(),
+  seasonStart: z.coerce.number().int().min(1900).max(2100).nullable().optional(),
+  kit: KitEnum.nullable().optional(),
+  quality: ProductQuality.nullable().optional(),
   league: z.string().max(50).nullable().optional(),
+  imageUrl: z.string().url().optional(),
+  imagePublicId: z.string().nullable().optional(),
 });
 
 // Strongly-typed payload inferred from Zod schema
@@ -95,7 +101,7 @@ export async function PUT(
 ) {
   try {
     const { id } = await ctx.params;
-    const user = await requireAuth(req);
+    await requireAuth(req);
     const existing = await prisma.product.findUnique({
       where: { id: id },
     });
@@ -103,11 +109,6 @@ export async function PUT(
       return new Response(
         JSON.stringify({ error: "NOT_FOUND" }),
         withCORS({ status: 404 }, req.headers.get("origin"))
-      );
-    if (existing.ownerId !== user.sub)
-      return new Response(
-        JSON.stringify({ error: "FORBIDDEN" }),
-        withCORS({ status: 403 }, req.headers.get("origin"))
       );
 
     const ct = req.headers.get("content-type") || "";
@@ -121,33 +122,48 @@ export async function PUT(
       // campos de texto
       for (const k of [
         "title",
-        "price",
-        "size",
-        "type",
+        "basePrice",
         "description",
+        "seasonLabel",
+        "seasonStart",
+        "kit",
+        "quality",
         "league",
       ] as const) {
         const v = form.get(k);
-        if (typeof v === "string" && v !== "") {
-          switch (k) {
-            case "price":
-              data.price = Number(v);
-              break;
-            case "title":
-              data.title = v;
-              break;
-            case "size":
-              data.size = v;
-              break;
-            case "type":
-              data.type = v;
-              break;
-            case "description":
-              data.description = v;
-              break;
-            case "league":
-              data.league = v;
-              break;
+        if (v !== null && v !== undefined) {
+          if (typeof v === "string" && v !== "") {
+            switch (k) {
+              case "basePrice":
+                data.basePrice = Number(v);
+                break;
+              case "seasonStart":
+                data.seasonStart = Number(v);
+                break;
+              case "title":
+                data.title = v;
+                break;
+              case "description":
+                data.description = v;
+                break;
+              case "seasonLabel":
+                data.seasonLabel = v;
+                break;
+              case "kit":
+                data.kit = v as z.infer<typeof KitEnum>;
+                break;
+              case "quality":
+                data.quality = v as z.infer<typeof ProductQuality>;
+                break;
+              case "league":
+                data.league = v;
+                break;
+            }
+          } else if (v === "") {
+            // Permitir limpiar campos nullable
+            if (k === "description" || k === "seasonLabel" || k === "kit" || k === "quality" || k === "league" || k === "seasonStart") {
+              data[k] = null;
+            }
           }
         }
       }
@@ -189,7 +205,6 @@ export async function PUT(
       // JSON
       const body: unknown = await req.json().catch(() => ({}));
       payload = updateSchema.parse(body);
-      data = updateSchema.parse(body);
     }
 
     // si reemplazamos imagen, borramos la anterior
@@ -225,14 +240,14 @@ export async function PUT(
   }
 }
 
-// DELETE /api/products/:id (protegido, solo dueño)
+// DELETE /api/products/:id
 export async function DELETE(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await ctx.params;
-    const user = await requireAuth(req);
+    await requireAuth(req);
     const existing = await prisma.product.findUnique({
       where: { id: id },
       include: { ProductImage: true },
@@ -241,11 +256,6 @@ export async function DELETE(
       return new Response(
         JSON.stringify({ error: "NOT_FOUND" }),
         withCORS({ status: 404 }, req.headers.get("origin"))
-      );
-    if (existing.ownerId !== user.sub)
-      return new Response(
-        JSON.stringify({ error: "FORBIDDEN" }),
-        withCORS({ status: 403 }, req.headers.get("origin"))
       );
 
     // Eliminar imagen principal

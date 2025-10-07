@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { withCORS, preflight } from "@/lib/cors";
-import { requireAuth } from "@/lib/auth";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 
@@ -18,7 +17,6 @@ export async function GET(
   const origin = req.headers.get("origin");
   const { id } = await params;
   try {
-    const { sub } = await requireAuth(req);
     const order = await prisma.order.findUnique({
       where: { id: id },
       include: {
@@ -26,6 +24,7 @@ export async function GET(
           select: {
             id: true,
             productId: true,
+            variantId: true,
             title: true,
             price: true,
             quantity: true,
@@ -34,7 +33,7 @@ export async function GET(
         },
       },
     });
-    if (!order || order.userId !== String(sub)) {
+    if (!order) {
       return new Response(
         JSON.stringify({ error: "NOT_FOUND" }),
         withCORS({ status: 404 }, origin)
@@ -44,10 +43,11 @@ export async function GET(
       JSON.stringify(order),
       withCORS({ status: 200 }, origin)
     );
-  } catch {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
     return new Response(
-      JSON.stringify({ error: "UNAUTHORIZED" }),
-      withCORS({ status: 401 }, origin)
+      JSON.stringify({ error: "BAD_REQUEST", message }),
+      withCORS({ status: 400 }, origin)
     );
   }
 }

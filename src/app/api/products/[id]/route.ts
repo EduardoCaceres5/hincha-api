@@ -115,6 +115,7 @@ export async function PUT(
     let payload!: UpdatePayload;
     let newImageUrl: string | undefined;
     let newPublicId: string | undefined;
+    let uploadedImages: Array<{ url: string; publicId: string }> = [];
 
     if (ct.includes("multipart/form-data")) {
       const form = await req.formData();
@@ -169,37 +170,51 @@ export async function PUT(
       }
       payload = updateSchema.parse(data);
 
-      // imagen opcional
-      const file = form.get("image") as File | null;
-      if (file && file.size) {
-        if (file.size > MAX_BYTES)
-          return new Response(
-            JSON.stringify({ error: "FILE_TOO_LARGE" }),
-            withCORS({ status: 413 }, req.headers.get("origin"))
-          );
-        if (!ALLOWED.includes(file.type || ""))
-          return new Response(
-            JSON.stringify({ error: "INVALID_TYPE" }),
-            withCORS({ status: 400 }, req.headers.get("origin"))
-          );
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const uploaded = await new Promise<UploadApiResponse>(
-          (resolve, reject) => {
-            const stream = cloudinary.uploader.upload_stream(
-              {
-                folder: process.env.CLOUDINARY_FOLDER || "hincha-store",
-                resource_type: "image",
-              },
-              (error, result) =>
-                error || !result
-                  ? reject(error || new Error("Upload failed"))
-                  : resolve(result)
+      // Imágenes múltiples
+      const images = form.getAll("images") as File[];
+
+      if (images.length > 0) {
+        for (const file of images) {
+          if (!(file instanceof File) || !file.size) continue;
+
+          if (file.size > MAX_BYTES)
+            return new Response(
+              JSON.stringify({ error: "FILE_TOO_LARGE" }),
+              withCORS({ status: 413 }, req.headers.get("origin"))
             );
-            stream.end(buffer);
-          }
-        );
-        newImageUrl = uploaded.secure_url;
-        newPublicId = uploaded.public_id;
+          if (!ALLOWED.includes(file.type || ""))
+            return new Response(
+              JSON.stringify({ error: "INVALID_TYPE" }),
+              withCORS({ status: 400 }, req.headers.get("origin"))
+            );
+
+          const buffer = Buffer.from(await file.arrayBuffer());
+          const uploaded = await new Promise<UploadApiResponse>(
+            (resolve, reject) => {
+              const stream = cloudinary.uploader.upload_stream(
+                {
+                  folder: process.env.CLOUDINARY_FOLDER || "hincha-store",
+                  resource_type: "image",
+                },
+                (error, result) =>
+                  error || !result
+                    ? reject(error || new Error("Upload failed"))
+                    : resolve(result)
+              );
+              stream.end(buffer);
+            }
+          );
+          uploadedImages.push({
+            url: uploaded.secure_url,
+            publicId: uploaded.public_id,
+          });
+        }
+
+        // La primera imagen se guarda como imagen principal
+        if (uploadedImages.length > 0) {
+          newImageUrl = uploadedImages[0].url;
+          newPublicId = uploadedImages[0].publicId;
+        }
       }
     } else {
       // JSON
@@ -207,11 +222,44 @@ export async function PUT(
       payload = updateSchema.parse(body);
     }
 
-    // si reemplazamos imagen, borramos la anterior
-    if (newImageUrl && existing.imagePublicId) {
-      try {
-        await cloudinary.uploader.destroy(existing.imagePublicId);
-      } catch {}
+    // Si se subieron nuevas imágenes, eliminamos las antiguas
+    if (uploadedImages.length > 0) {
+      // Eliminar imagen principal anterior
+      if (existing.imagePublicId) {
+        try {
+          await cloudinary.uploader.destroy(existing.imagePublicId);
+        } catch {}
+      }
+
+      // Eliminar todas las imágenes adicionales anteriores
+      const oldImages = await prisma.productImage.findMany({
+        where: { productId: existing.id },
+      });
+
+      for (const img of oldImages) {
+        if (img.imagePublicId) {
+          try {
+            await cloudinary.uploader.destroy(img.imagePublicId);
+          } catch {}
+        }
+      }
+
+      // Eliminar registros de ProductImage antiguos
+      await prisma.productImage.deleteMany({
+        where: { productId: existing.id },
+      });
+
+      // Crear nuevos registros de ProductImage (desde la segunda imagen en adelante)
+      if (uploadedImages.length > 1) {
+        await prisma.productImage.createMany({
+          data: uploadedImages.slice(1).map((img, index) => ({
+            productId: existing.id,
+            imageUrl: img.url,
+            imagePublicId: img.publicId,
+            order: index + 1,
+          })),
+        });
+      }
     }
 
     const updated = await prisma.product.update({

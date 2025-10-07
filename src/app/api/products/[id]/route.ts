@@ -84,6 +84,8 @@ const updateSchema = z.object({
   title: z.string().min(3).optional(),
   basePrice: z.coerce.number().int().min(0).optional(),
   description: z.string().nullable().optional(),
+  purchasePrice: z.coerce.number().int().min(0).nullable().optional(),
+  purchaseUrl: z.string().url().nullable().optional(),
   seasonLabel: z.string().max(20).nullable().optional(),
   seasonStart: z.coerce
     .number()
@@ -131,6 +133,8 @@ export async function PUT(
         "title",
         "basePrice",
         "description",
+        "purchasePrice",
+        "purchaseUrl",
         "seasonLabel",
         "seasonStart",
         "kit",
@@ -147,11 +151,17 @@ export async function PUT(
               case "seasonStart":
                 data.seasonStart = Number(v);
                 break;
+              case "purchasePrice":
+                data.purchasePrice = Number(v);
+                break;
               case "title":
                 data.title = v;
                 break;
               case "description":
                 data.description = v;
+                break;
+              case "purchaseUrl":
+                data.purchaseUrl = v;
                 break;
               case "seasonLabel":
                 data.seasonLabel = v;
@@ -170,6 +180,8 @@ export async function PUT(
             // Permitir limpiar campos nullable
             if (
               k === "description" ||
+              k === "purchasePrice" ||
+              k === "purchaseUrl" ||
               k === "seasonLabel" ||
               k === "kit" ||
               k === "quality" ||

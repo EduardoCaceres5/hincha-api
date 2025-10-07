@@ -98,18 +98,47 @@ export async function GET(req: NextRequest) {
     const [field, dir] = parsed.sort.split(":") as [string, "asc" | "desc"];
     const orderBy = { [field]: dir } as Record<string, "asc" | "desc">;
 
-    const [total, items] = await Promise.all([
+    const [total, rawItems] = await Promise.all([
       prisma.transaction.count({ where: and.length ? (where as never) : {} }),
       prisma.transaction.findMany({
         where: and.length ? (where as never) : {},
         orderBy,
         skip: (parsed.page - 1) * parsed.limit,
         take: parsed.limit,
+        include: {
+          TransactionImage: {
+            orderBy: { order: "asc" },
+          },
+        },
       }),
     ]);
 
+    // Mapear TransactionImage -> images para compatibilidad con frontend
+    const items = rawItems.map((item) => ({
+      ...item,
+      images: item.TransactionImage,
+      TransactionImage: undefined,
+    }));
+
+    // Calcular totales de ingresos y egresos
+    const incomeTotal = items
+      .filter((t) => t.type === "INCOME")
+      .reduce((sum, t) => sum + t.amount, 0);
+    const expenseTotal = items
+      .filter((t) => t.type === "EXPENSE")
+      .reduce((sum, t) => sum + t.amount, 0);
+    const balance = incomeTotal - expenseTotal;
+
     return new Response(
-      JSON.stringify({ items, total, page: parsed.page, limit: parsed.limit }),
+      JSON.stringify({
+        items,
+        total,
+        page: parsed.page,
+        limit: parsed.limit,
+        incomeTotal,
+        expenseTotal,
+        balance,
+      }),
       withCORS(
         { status: 200, headers: { "Content-Type": "application/json" } },
         origin

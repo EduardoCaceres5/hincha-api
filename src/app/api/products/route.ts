@@ -68,6 +68,9 @@ const BaseSchema = z.object({
   price: z.coerce.number().int().min(0).optional(), // legacy
 
   description: z.string().optional(),
+  // nuevos campos de compra
+  purchasePrice: z.coerce.number().int().min(0).optional(),
+  purchaseUrl: z.string().url().optional(),
 
   // legacy 'type' → quality
   type: z.enum(["FAN", "PLAYER_VERSION"]).optional(),
@@ -80,13 +83,15 @@ const BaseSchema = z.object({
   league: z.string().max(50).optional(),
 });
 
-const ImageSchema = z.object({
-  imageUrl: z.string().url().optional(),
-  imagePublicId: z.string().min(1).optional(),
-  order: z.coerce.number().int().min(0).default(0),
-}).refine((d) => !!d.imageUrl || !!d.imagePublicId, {
-  message: "Debe proveer imageUrl o imagePublicId",
-});
+const ImageSchema = z
+  .object({
+    imageUrl: z.string().url().optional(),
+    imagePublicId: z.string().min(1).optional(),
+    order: z.coerce.number().int().min(0).default(0),
+  })
+  .refine((d) => !!d.imageUrl || !!d.imagePublicId, {
+    message: "Debe proveer imageUrl o imagePublicId",
+  });
 
 const CreateJsonSchema = BaseSchema.extend({
   variants: z.array(VariantSchema).min(1),
@@ -136,7 +141,8 @@ export async function GET(req: NextRequest) {
       limit: url.searchParams.get("limit") ?? undefined,
     });
 
-    const { search, kit, quality, seasonStart, league, sort, page, limit } = parsed;
+    const { search, kit, quality, seasonStart, league, sort, page, limit } =
+      parsed;
 
     // Filtros (incluye metadatos nuevos; mantenemos ciertos campos legacy para compat)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -177,6 +183,8 @@ export async function GET(req: NextRequest) {
           title: true,
           basePrice: true, // ← nuevo
           description: true,
+          purchasePrice: true,
+          purchaseUrl: true,
           // imagen
           imageUrl: true,
           imagePublicId: true,
@@ -193,7 +201,12 @@ export async function GET(req: NextRequest) {
           },
           // múltiples imágenes
           ProductImage: {
-            select: { id: true, imageUrl: true, imagePublicId: true, order: true },
+            select: {
+              id: true,
+              imageUrl: true,
+              imagePublicId: true,
+              order: true,
+            },
             orderBy: { order: "asc" },
           },
         },
@@ -241,6 +254,8 @@ export async function POST(req: NextRequest) {
       title: string;
       basePrice: number;
       description: string | null;
+      purchasePrice: number | null;
+      purchaseUrl: string | null;
 
       // nuevos metadatos
       seasonLabel: string | null;
@@ -268,6 +283,8 @@ export async function POST(req: NextRequest) {
         basePrice: fd.get("basePrice"),
         price: fd.get("price"), // compat
         description: fd.get("description") || undefined,
+        purchasePrice: fd.get("purchasePrice") || undefined,
+        purchaseUrl: fd.get("purchaseUrl") || undefined,
         type: fd.get("type") || undefined, // compat
         seasonLabel: fd.get("seasonLabel") || undefined,
         seasonStart: fd.get("seasonStart") || undefined,
@@ -312,7 +329,10 @@ export async function POST(req: NextRequest) {
 
       if (imageFiles.length === 0) {
         return new Response(
-          JSON.stringify({ error: "BAD_REQUEST", message: "Al menos una imagen es requerida" }),
+          JSON.stringify({
+            error: "BAD_REQUEST",
+            message: "Al menos una imagen es requerida",
+          }),
           withCORS(
             { status: 400, headers: { "Content-Type": "application/json" } },
             origin
@@ -323,16 +343,13 @@ export async function POST(req: NextRequest) {
       // Subir primera imagen como principal
       const mainImageFile = imageFiles[0];
       const mainBytes = Buffer.from(await mainImageFile.arrayBuffer());
-      const mainDataUri = `data:${mainImageFile.type};base64,${mainBytes.toString(
-        "base64"
-      )}`;
-      const mainUpload = await cloudinary.uploader.upload(
-        mainDataUri,
-        {
-          folder: "hincha/products",
-          resource_type: "image",
-        }
-      );
+      const mainDataUri = `data:${
+        mainImageFile.type
+      };base64,${mainBytes.toString("base64")}`;
+      const mainUpload = await cloudinary.uploader.upload(mainDataUri, {
+        folder: "hincha/products",
+        resource_type: "image",
+      });
 
       // Subir TODAS las imágenes a ProductImage (incluida la principal)
       const additionalImages: Array<{
@@ -371,6 +388,8 @@ export async function POST(req: NextRequest) {
         title: base.title,
         basePrice: norm.basePrice,
         description: base.description ?? null,
+        purchasePrice: base.purchasePrice ?? null,
+        purchaseUrl: base.purchaseUrl ?? null,
         seasonLabel: norm.seasonLabel ?? null,
         seasonStart: norm.seasonStart ?? null,
         kit: norm.kit ?? null,
@@ -421,6 +440,8 @@ export async function POST(req: NextRequest) {
         title: dto.title,
         basePrice: norm.basePrice,
         description: dto.description ?? null,
+        purchasePrice: dto.purchasePrice ?? null,
+        purchaseUrl: dto.purchaseUrl ?? null,
         seasonLabel: norm.seasonLabel ?? null,
         seasonStart: norm.seasonStart ?? null,
         kit: norm.kit ?? null,
@@ -445,6 +466,10 @@ export async function POST(req: NextRequest) {
         quality: dataForDb.quality,
         league: dataForDb.league,
 
+        // compra
+        purchasePrice: dataForDb.purchasePrice,
+        purchaseUrl: dataForDb.purchaseUrl,
+
         // imagen
         imageUrl: dataForDb.imageUrl,
         imagePublicId: dataForDb.imagePublicId,
@@ -456,9 +481,10 @@ export async function POST(req: NextRequest) {
         ProductVariant: { createMany: { data: dataForDb.variants } },
 
         // todas las imágenes en ProductImage
-        ProductImage: dataForDb.additionalImages && dataForDb.additionalImages.length > 0
-          ? { createMany: { data: dataForDb.additionalImages } }
-          : undefined,
+        ProductImage:
+          dataForDb.additionalImages && dataForDb.additionalImages.length > 0
+            ? { createMany: { data: dataForDb.additionalImages } }
+            : undefined,
       },
       include: {
         ProductVariant: true,

@@ -40,6 +40,7 @@ model Product {
   title          String
   description    String?
   basePrice      Int // ← antes era price
+  purchasePrice  Int? // precio de compra (opcional)
   imageUrl       String
   imagePublicId  String?
   // Metadatos:
@@ -48,6 +49,7 @@ model Product {
   kit            KitType?
   quality        ProductQuality?
   league         String?
+  purchaseUrl    String? // link de compra (opcional)
   // Relación:
   ProductVariant ProductVariant[]
   ProductImage   ProductImage[]

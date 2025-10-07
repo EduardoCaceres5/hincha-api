@@ -85,7 +85,13 @@ const updateSchema = z.object({
   basePrice: z.coerce.number().int().min(0).optional(),
   description: z.string().nullable().optional(),
   seasonLabel: z.string().max(20).nullable().optional(),
-  seasonStart: z.coerce.number().int().min(1900).max(2100).nullable().optional(),
+  seasonStart: z.coerce
+    .number()
+    .int()
+    .min(1900)
+    .max(2100)
+    .nullable()
+    .optional(),
   kit: KitEnum.nullable().optional(),
   quality: ProductQuality.nullable().optional(),
   league: z.string().max(50).nullable().optional(),
@@ -115,7 +121,7 @@ export async function PUT(
     let payload!: UpdatePayload;
     let newImageUrl: string | undefined;
     let newPublicId: string | undefined;
-    let uploadedImages: Array<{ url: string; publicId: string }> = [];
+    const uploadedImages: Array<{ url: string; publicId: string }> = [];
 
     if (ct.includes("multipart/form-data")) {
       const form = await req.formData();
@@ -162,7 +168,14 @@ export async function PUT(
             }
           } else if (v === "") {
             // Permitir limpiar campos nullable
-            if (k === "description" || k === "seasonLabel" || k === "kit" || k === "quality" || k === "league" || k === "seasonStart") {
+            if (
+              k === "description" ||
+              k === "seasonLabel" ||
+              k === "kit" ||
+              k === "quality" ||
+              k === "league" ||
+              k === "seasonStart"
+            ) {
               data[k] = null;
             }
           }

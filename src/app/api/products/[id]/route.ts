@@ -249,14 +249,14 @@ export async function PUT(
         where: { productId: existing.id },
       });
 
-      // Crear nuevos registros de ProductImage (desde la segunda imagen en adelante)
-      if (uploadedImages.length > 1) {
+      // Crear nuevos registros de ProductImage (TODAS las imágenes)
+      if (uploadedImages.length > 0) {
         await prisma.productImage.createMany({
-          data: uploadedImages.slice(1).map((img, index) => ({
+          data: uploadedImages.map((img, index) => ({
             productId: existing.id,
             imageUrl: img.url,
             imagePublicId: img.publicId,
-            order: index + 1,
+            order: index,
           })),
         });
       }

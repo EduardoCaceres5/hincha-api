@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { withCORS, preflight } from "@/lib/cors";
 import { requireAuth } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
+import { KitType, ProductQuality } from "@prisma/client";
 
 export async function OPTIONS(req: NextRequest) {
   return preflight(req);
@@ -19,10 +21,10 @@ export async function GET(req: NextRequest) {
   const kit = searchParams.get("kit") || undefined;
   const quality = searchParams.get("quality") || undefined;
   const sortBy = searchParams.get("sortBy") || "createdAt";
-  const sortOrder = searchParams.get("sortOrder") || "desc";
+  const sortOrder = (searchParams.get("sortOrder") || "desc") as "asc" | "desc";
 
   // Construir where clause
-  const where: any = {};
+  const where: Prisma.ProductWhereInput = {};
 
   if (search) {
     where.OR = [
@@ -35,18 +37,22 @@ export async function GET(req: NextRequest) {
     where.league = league;
   }
 
-  if (kit) {
-    where.kit = kit;
+  if (kit && Object.values(KitType).includes(kit as KitType)) {
+    where.kit = kit as KitType;
   }
 
-  if (quality) {
-    where.quality = quality;
+  if (
+    quality &&
+    Object.values(ProductQuality).includes(quality as ProductQuality)
+  ) {
+    where.quality = quality as ProductQuality;
   }
 
   // Construir orderBy
-  const orderBy: any = {};
+  const orderBy: Prisma.ProductOrderByWithRelationInput =
+    {} as Prisma.ProductOrderByWithRelationInput;
   if (sortBy) {
-    orderBy[sortBy] = sortOrder;
+    (orderBy as Record<string, "asc" | "desc">)[sortBy] = sortOrder;
   }
 
   const [total, items] = await Promise.all([

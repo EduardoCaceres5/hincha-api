@@ -25,6 +25,7 @@ const itemSchema = z.object({
   variantId: z.string(),
   qty: z.number().int().min(1).max(99),
 });
+
 const schema = z.object({
   name: z.string().min(2),
   phone: z.string().min(6),

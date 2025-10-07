@@ -58,51 +58,29 @@ export async function POST(req: NextRequest) {
       lng,
     } = schema.parse(await req.json());
 
-    const variantIds = items.map((i) => i.variantId);
-    const variants = await prisma.productVariant.findMany({
-      where: { name: { in: variantIds } },
+    // Obtener información de productos para calcular precios
+    const productIds = items.map((i) => i.productId);
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
       select: {
         id: true,
-        name: true,
-        stock: true,
-        price: true,
-        product: {
-          select: {
-            id: true,
-            title: true,
-            basePrice: true,
-            imageUrl: true,
-            imagePublicId: true,
-            seasonLabel: true,
-            seasonStart: true,
-            kit: true,
-            quality: true,
-          },
-        },
+        title: true,
+        basePrice: true,
+        imageUrl: true,
       },
     });
-    if (variants.length !== items.length) {
-      return new Response(
-        JSON.stringify({ error: "PRODUCT_MISMATCH" }),
-        withCORS({ status: 400 }, origin)
-      );
-    }
 
-    // Validar stock y calcular subtotal
+    // Calcular subtotal usando basePrice del producto
     let subtotal = 0;
     for (const it of items) {
-      const v = variants.find((v) => v.name === it.variantId)!;
-      if (v.stock < it.qty) {
+      const product = products.find((p) => p.id === it.productId);
+      if (!product) {
         return new Response(
-          JSON.stringify({
-            error: "OUT_OF_STOCK",
-            detail: `${v.product.title} - ${v.name}`,
-          }),
-          withCORS({ status: 409 }, origin)
+          JSON.stringify({ error: "PRODUCT_NOT_FOUND", productId: it.productId }),
+          withCORS({ status: 400 }, origin)
         );
       }
-      const unit = v.price ?? v.product.basePrice;
-      subtotal += unit * it.qty;
+      subtotal += product.basePrice * it.qty;
     }
 
     // Calcular extras de personalización (ajustar precios según tu lógica)
@@ -135,15 +113,14 @@ export async function POST(req: NextRequest) {
           totalPrice,
           items: {
             create: items.map((it) => {
-              const v = variants.find((v) => v.name === it.variantId)!;
-              const unit = v.price ?? v.product.basePrice;
+              const product = products.find((p) => p.id === it.productId)!;
               return {
-                productId: v.product.id,
-                variantId: v.id,
-                title: `${v.product.title} (${v.name})`,
-                price: unit,
+                productId: product.id,
+                variantId: it.variantId,
+                title: `${product.title} (${it.variantId})`,
+                price: product.basePrice,
                 quantity: it.qty,
-                imageUrl: v.product.imageUrl,
+                imageUrl: product.imageUrl,
               };
             }),
           },

@@ -22,12 +22,13 @@ const UpdateSchema = z.object({
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireRole(_req, ["admin", "seller"]);
+    const { id } = await params;
     const item = await prisma.transaction.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
     if (!item) {
       return new Response(
@@ -47,7 +48,7 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const origin = req.headers.get("origin");
   try {
@@ -56,8 +57,9 @@ export async function PATCH(
     const dto = UpdateSchema.parse(body);
 
     // Permitir que seller sólo modifique sus propias transacciones
+    const { id } = await params;
     const existing = await prisma.transaction.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
     if (!existing)
       return new Response(
@@ -72,7 +74,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.transaction.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         type: dto.type ?? undefined,
         amount: dto.amount ?? undefined,
@@ -96,13 +98,14 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const origin = req.headers.get("origin");
   try {
     const user = await requireRole(req, ["admin", "seller"]);
+    const { id } = await params;
     const existing = await prisma.transaction.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
     if (!existing)
       return new Response(
@@ -115,7 +118,7 @@ export async function DELETE(
         withCORS({ status: 403 }, origin)
       );
     }
-    await prisma.transaction.delete({ where: { id: params.id } });
+    await prisma.transaction.delete({ where: { id } });
     return new Response(null, withCORS({ status: 204 }, origin));
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";

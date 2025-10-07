@@ -19,7 +19,7 @@ export async function OPTIONS(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const origin = req.headers.get("origin");
   try {
-    const user = await requireAuth(req);
+    await requireAuth(req);
     const { ids } = (await req.json()) as { ids: string[] };
     if (!Array.isArray(ids) || ids.length === 0) {
       return new Response(

@@ -112,13 +112,13 @@ export async function PUT(
       );
 
     const ct = req.headers.get("content-type") || "";
-    let data: Partial<UpdatePayload> = {};
     let payload!: UpdatePayload;
     let newImageUrl: string | undefined;
     let newPublicId: string | undefined;
 
     if (ct.includes("multipart/form-data")) {
       const form = await req.formData();
+      const data: Partial<UpdatePayload> = {};
       // campos de texto
       for (const k of [
         "title",

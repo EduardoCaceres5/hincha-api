@@ -8,7 +8,7 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const { sub } = await requireAuth(req);
+  await requireAuth(req);
   const { searchParams } = new URL(req.url);
   const page = Number(searchParams.get("page") || 1);
   const limit = Math.min(Number(searchParams.get("limit") || 12), 50);

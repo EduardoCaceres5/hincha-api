@@ -16,7 +16,7 @@ export async function OPTIONS(req: NextRequest) {
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { postId: string } }
+  { params }: { params: Promise<{ postId: string }> }
 ) {
   const origin = req.headers.get("origin");
 
@@ -35,7 +35,7 @@ export async function GET(
       );
     }
 
-    const { postId } = params;
+    const { postId } = await params;
 
     if (!postId) {
       return new Response(

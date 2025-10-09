@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     });
 
     const results: Array<{
-      productId: number;
+      productId: string;
       title: string;
       status: "success" | "error";
       instagramPostId?: string;

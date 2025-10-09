@@ -57,7 +57,7 @@ async function main() {
   console.log(`📦 Total de productos encontrados: ${products.length}\n`);
 
   const results: Array<{
-    productId: number;
+    productId: string;
     title: string;
     status: "success" | "error" | "skipped";
     instagramPostId?: string;

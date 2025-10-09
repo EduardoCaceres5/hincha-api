@@ -12,6 +12,7 @@
     "postinstall": "prisma generate",
     "vercel-build": "prisma migrate deploy && next build",
     "instagram:publish-all": "tsx scripts/publish-all-to-instagram.ts",
+    "instagram:publish-missing": "tsx scripts/publish-missing-to-instagram.ts",
     "instagram:sync-ids": "tsx scripts/sync-instagram-ids.ts"
   },
   "dependencies": {

@@ -51,7 +51,80 @@ Total procesados: 36
 
 ---
 
-## 2. Publicar todos los productos existentes
+## 2. Publicar productos faltantes en Instagram
+
+Este script identifica y publica **solo los productos que NO están en Instagram** (sin `instagramPostId`).
+
+### ¿Cuándo usar este script?
+
+- Tienes productos nuevos que aún no se han publicado
+- Algunos productos fallaron en publicaciones anteriores
+- Quieres verificar y publicar solo lo que falta
+
+### Ventajas sobre publish-all
+
+- ✅ **Más eficiente**: Solo procesa productos sin publicar
+- ✅ **Sin duplicados**: No intenta republicar productos existentes
+- ✅ **Verificación clara**: Te dice exactamente cuántos productos faltan
+
+### Uso
+
+```bash
+pnpm run instagram:publish-missing
+```
+
+### Output esperado
+
+```
+🔍 Buscando productos faltantes en Instagram...
+
+📦 Productos sin publicar encontrados: 5
+
+🚀 Iniciando publicación...
+
+[1/5] Procesando: Camiseta Barcelona 2025
+✅ Publicado con éxito → Post ID: 17969335175963394
+💾 ID guardado en base de datos
+
+⏳ Esperando 3 segundos antes de continuar...
+
+[2/5] Procesando: Camiseta Bayern Munich 2025
+✅ Publicado con éxito → Post ID: 17969335175963395
+💾 ID guardado en base de datos
+
+...
+
+============================================================
+📊 RESUMEN DE PUBLICACIÓN
+============================================================
+Total procesados: 5
+✅ Exitosos: 5
+❌ Errores: 0
+⚠️  Saltados: 0
+============================================================
+
+✅ PRODUCTOS PUBLICADOS:
+  - Camiseta Barcelona 2025 → 17969335175963394
+  - Camiseta Bayern Munich 2025 → 17969335175963395
+  - Camiseta PSG 2025 → 17969335175963396
+  - Camiseta Juventus 2025 → 17969335175963397
+  - Camiseta Milan 2025 → 17969335175963398
+
+✨ Proceso completado
+```
+
+Si todos los productos ya están publicados:
+
+```
+🔍 Buscando productos faltantes en Instagram...
+
+✅ ¡Todos los productos ya están publicados en Instagram!
+   No hay nada que hacer.
+```
+
+---
+
+## 3. Publicar todos los productos existentes
 
 Este script te permite publicar todos los productos que ya tienes en la base de datos a Instagram.
 

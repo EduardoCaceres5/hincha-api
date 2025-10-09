@@ -302,52 +302,15 @@ export async function PUT(
       },
     });
 
-    // Actualizar caption en Instagram si el producto tiene un post asociado
-    // y se modificó algún campo relevante (title, description, basePrice, etc.)
-    const relevantFieldsChanged =
-      payload.title !== undefined ||
-      payload.description !== undefined ||
-      payload.basePrice !== undefined ||
-      payload.kit !== undefined ||
-      payload.quality !== undefined ||
-      payload.league !== undefined ||
-      payload.seasonLabel !== undefined;
+    // NOTA: Instagram API no permite actualizar posts existentes.
+    // Los posts quedan como están en Instagram cuando editas un producto.
+    // Si quieres actualizar el post en Instagram, debes eliminarlo manualmente
+    // y el sistema creará uno nuevo en la próxima edición, o puedes republicarlo manualmente.
 
-    if (
-      existing.instagramPostId &&
-      instagramService &&
-      relevantFieldsChanged
-    ) {
-      // Actualizar en background (no bloquear respuesta)
-      const imageUrls = updated.ProductImage.length > 0
-        ? updated.ProductImage.map((img) => img.imageUrl)
-        : [updated.imageUrl];
-
-      instagramService
-        .updateCaption(
-          existing.instagramPostId,
-          instagramService.buildCaption({
-            title: updated.title,
-            description: updated.description ?? undefined,
-            imageUrls,
-            basePrice: updated.basePrice,
-            league: updated.league ?? undefined,
-            kit: updated.kit ?? undefined,
-            quality: updated.quality ?? undefined,
-            seasonLabel: updated.seasonLabel ?? undefined,
-          })
-        )
-        .then(() => {
-          console.log(
-            `✅ Caption actualizado en Instagram para producto "${updated.title}"`
-          );
-        })
-        .catch((error) => {
-          console.error(
-            `⚠️  No se pudo actualizar el caption en Instagram:`,
-            error instanceof Error ? error.message : error
-          );
-        });
+    if (existing.instagramPostId) {
+      console.log(
+        `ℹ️  Producto "${updated.title}" actualizado. El post de Instagram (ID: ${existing.instagramPostId}) permanece sin cambios (la API de Instagram no permite editar posts).`
+      );
     }
 
     return new Response(

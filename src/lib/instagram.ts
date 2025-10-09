@@ -328,17 +328,29 @@ export class InstagramService {
 
   /**
    * Actualiza el caption de un post existente
-   * Nota: La API de Instagram tiene limitaciones para actualizar posts.
-   * Solo se puede actualizar el caption de posts de tipo media (no de reels ni IGTV)
+   *
+   * IMPORTANTE: La Instagram Graph API NO permite actualizar el caption de posts ya publicados.
+   * Solo permite actualizar comment_enabled y hide_like_and_view_counts.
+   *
+   * Este método está disponible pero puede fallar. La única forma real de actualizar
+   * el contenido de un post es eliminarlo y volver a publicarlo.
+   *
+   * @deprecated La API de Instagram no soporta actualización de captions
    */
   async updateCaption(postId: string, caption: string): Promise<void> {
     const { accessToken } = this.config;
 
+    console.warn(
+      `⚠️  ADVERTENCIA: Instagram API no permite actualizar captions de posts publicados. Post ID: ${postId}`
+    );
+
     try {
+      // Intentar actualizar (probablemente falle)
       await axios.post(
         `https://graph.instagram.com/v24.0/${postId}`,
         {
           caption: caption,
+          comment_enabled: true, // Requerido por la API
         },
         {
           headers: {
@@ -355,12 +367,35 @@ export class InstagramService {
           "Error actualizando caption en Instagram:",
           error.response?.data || error.message
         );
-        throw new Error(
-          `Instagram API Error: ${error.response?.data?.error?.message || error.message}`
+        // No lanzar error, solo loggear
+        console.log(
+          `ℹ️  Nota: Instagram no permite actualizar captions. Considera eliminar y republicar el post.`
         );
       }
-      throw error;
     }
+  }
+
+  /**
+   * Elimina un post y lo vuelve a publicar con nueva información
+   * Esta es la única forma de "actualizar" un post en Instagram
+   */
+  async republishPost(
+    postId: string,
+    product: ProductData
+  ): Promise<string> {
+    console.log(`🔄 Republicando post ${postId}...`);
+
+    // Primero eliminar el post existente
+    await this.deletePost(postId);
+
+    // Esperar un momento antes de republicar
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Publicar nuevamente
+    const newPostId = await this.publishAuto(product);
+
+    console.log(`✅ Post republicado. Nuevo ID: ${newPostId}`);
+    return newPostId;
   }
 
   public buildCaption(product: ProductData): string {

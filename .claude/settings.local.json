@@ -3,7 +3,8 @@
     "allow": [
       "Bash(pnpm install:*)",
       "Bash(pnpm run:*)",
-      "Bash(pnpm db:push:*)"
+      "Bash(pnpm db:push:*)",
+      "Read(//c/Users/ecaceres/proyectos/personal/hincha-store/**)"
     ],
     "deny": [],
     "ask": []

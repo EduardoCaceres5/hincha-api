@@ -296,6 +296,40 @@ export class InstagramService {
   }
 
   /**
+   * Obtiene el permalink (URL pública) de un post de Instagram
+   */
+  async getPostPermalink(postId: string): Promise<string> {
+    const { accessToken } = this.config;
+
+    try {
+      const response = await axios.get(
+        `https://graph.instagram.com/v24.0/${postId}`,
+        {
+          params: {
+            fields: "permalink",
+          },
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      return response.data.permalink;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error(
+          "Error obteniendo permalink de Instagram:",
+          error.response?.data || error.message
+        );
+        throw new Error(
+          `Instagram API Error: ${error.response?.data?.error?.message || error.message}`
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Elimina un post de Instagram
    */
   async deletePost(postId: string): Promise<void> {

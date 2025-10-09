@@ -24,6 +24,70 @@ export class InstagramService {
   }
 
   /**
+   * Verifica el estado de un container de media y espera hasta que esté listo
+   */
+  private async waitForMediaReady(
+    containerId: string,
+    maxAttempts: number = 30,
+    intervalMs: number = 2000
+  ): Promise<void> {
+    const { accessToken } = this.config;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const response = await axios.get(
+          `https://graph.instagram.com/v24.0/${containerId}`,
+          {
+            params: {
+              fields: "status_code",
+            },
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        const statusCode = response.data.status_code;
+
+        // Status codes:
+        // - EXPIRED: El container expiró
+        // - ERROR: Hubo un error procesando el media
+        // - FINISHED: El media está listo para publicar
+        // - IN_PROGRESS: El media todavía se está procesando
+        // - PUBLISHED: El media ya fue publicado
+
+        if (statusCode === "FINISHED") {
+          return; // Está listo para publicar
+        }
+
+        if (statusCode === "ERROR" || statusCode === "EXPIRED") {
+          throw new Error(
+            `Media container status: ${statusCode}. No se puede publicar.`
+          );
+        }
+
+        // Si está en progreso, esperar antes de intentar de nuevo
+        if (statusCode === "IN_PROGRESS") {
+          await new Promise((resolve) => setTimeout(resolve, intervalMs));
+          continue;
+        }
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+          console.error(
+            `Error verificando estado del media (intento ${attempt + 1}/${maxAttempts}):`,
+            error.response?.data || error.message
+          );
+        }
+        throw error;
+      }
+    }
+
+    throw new Error(
+      `Timeout: El media no estuvo listo después de ${maxAttempts} intentos`
+    );
+  }
+
+  /**
    * Publica una imagen en Instagram con caption
    */
   async publishPost(product: ProductData): Promise<string> {
@@ -38,22 +102,35 @@ export class InstagramService {
     try {
       // Paso 1: Crear container
       const containerResponse = await axios.post(
-        `https://graph.facebook.com/v21.0/${instagramAccountId}/media`,
+        `https://graph.instagram.com/v24.0/${instagramAccountId}/media`,
         {
           image_url: imageUrl,
           caption: caption,
-          access_token: accessToken,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
         }
       );
 
       const creationId = containerResponse.data.id;
 
+      // Esperar a que el media esté listo
+      await this.waitForMediaReady(creationId);
+
       // Paso 2: Publicar el container
       const publishResponse = await axios.post(
-        `https://graph.facebook.com/v21.0/${instagramAccountId}/media_publish`,
+        `https://graph.instagram.com/v24.0/${instagramAccountId}/media_publish`,
         {
           creation_id: creationId,
-          access_token: accessToken,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
         }
       );
 
@@ -84,11 +161,16 @@ export class InstagramService {
       const mediaIds = await Promise.all(
         product.imageUrls.slice(0, 10).map(async (imageUrl) => {
           const response = await axios.post(
-            `https://graph.facebook.com/v21.0/${instagramAccountId}/media`,
+            `https://graph.instagram.com/v24.0/${instagramAccountId}/media`,
             {
               image_url: imageUrl,
               is_carousel_item: true,
-              access_token: accessToken,
+            },
+            {
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
             }
           );
           return response.data.id;
@@ -97,23 +179,36 @@ export class InstagramService {
 
       // Paso 2: Crear container del carrusel
       const carouselResponse = await axios.post(
-        `https://graph.facebook.com/v21.0/${instagramAccountId}/media`,
+        `https://graph.instagram.com/v24.0/${instagramAccountId}/media`,
         {
           media_type: "CAROUSEL",
           children: mediaIds,
           caption: caption,
-          access_token: accessToken,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
         }
       );
 
       const creationId = carouselResponse.data.id;
 
+      // Esperar a que el carrusel esté listo
+      await this.waitForMediaReady(creationId);
+
       // Paso 3: Publicar
       const publishResponse = await axios.post(
-        `https://graph.facebook.com/v21.0/${instagramAccountId}/media_publish`,
+        `https://graph.instagram.com/v24.0/${instagramAccountId}/media_publish`,
         {
           creation_id: creationId,
-          access_token: accessToken,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
         }
       );
 
@@ -122,6 +217,63 @@ export class InstagramService {
       if (axios.isAxiosError(error)) {
         console.error(
           "Error publicando carrusel en Instagram:",
+          error.response?.data || error.message
+        );
+        throw new Error(
+          `Instagram API Error: ${error.response?.data?.error?.message || error.message}`
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Publica un Reel en Instagram
+   */
+  async publishReel(videoUrl: string, caption?: string): Promise<string> {
+    const { accessToken, instagramAccountId } = this.config;
+
+    try {
+      // Paso 1: Crear el container del Reel
+      const containerResponse = await axios.post(
+        `https://graph.instagram.com/v24.0/${instagramAccountId}/media`,
+        {
+          video_url: videoUrl,
+          media_type: "REELS",
+          caption: caption,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const creationId = containerResponse.data.id;
+
+      // Esperar a que el video esté listo (los videos pueden tardar más)
+      await this.waitForMediaReady(creationId, 60, 3000); // 60 intentos cada 3 segundos = max 3 minutos
+
+      // Paso 2: Publicar el Reel
+      const publishResponse = await axios.post(
+        `https://graph.instagram.com/v24.0/${instagramAccountId}/media_publish`,
+        {
+          creation_id: creationId,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      return publishResponse.data.id; // ID del Reel publicado
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error(
+          "Error publicando Reel en Instagram:",
           error.response?.data || error.message
         );
         throw new Error(

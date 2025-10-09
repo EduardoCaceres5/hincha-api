@@ -10,7 +10,8 @@
     "db:push": "prisma db push",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "vercel-build": "prisma migrate deploy && next build"
+    "vercel-build": "prisma migrate deploy && next build",
+    "instagram:publish-all": "tsx scripts/publish-all-to-instagram.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
@@ -31,6 +32,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
     "prisma": "^6.16.2",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }

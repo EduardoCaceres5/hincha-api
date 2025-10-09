@@ -4,6 +4,7 @@ import { withCORS, preflight } from "@/lib/cors";
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth";
 import { v2 as cloudinary } from "cloudinary";
+import { instagramService } from "@/lib/instagram";
 
 // Nos aseguramos Node runtime (subida a Cloudinary necesita Node APIs)
 export const runtime = "nodejs";
@@ -491,6 +492,38 @@ export async function POST(req: NextRequest) {
         ProductImage: true,
       },
     });
+
+    // Publicar en Instagram de forma asíncrona (no bloquea la respuesta)
+    if (instagramService) {
+      const imageUrls =
+        dataForDb.additionalImages && dataForDb.additionalImages.length > 0
+          ? dataForDb.additionalImages.map((img) => img.imageUrl)
+          : [dataForDb.imageUrl];
+
+      instagramService
+        .publishAuto({
+          title: dataForDb.title,
+          description: dataForDb.description ?? undefined,
+          imageUrls,
+          basePrice: dataForDb.basePrice,
+          league: dataForDb.league ?? undefined,
+          kit: dataForDb.kit ?? undefined,
+          quality: dataForDb.quality ?? undefined,
+          seasonLabel: dataForDb.seasonLabel ?? undefined,
+        })
+        .then((postId) => {
+          console.log(
+            `✅ Producto "${dataForDb.title}" publicado en Instagram: ${postId}`
+          );
+        })
+        .catch((error) => {
+          console.error(
+            `❌ Error publicando en Instagram el producto "${dataForDb.title}":`,
+            error.message
+          );
+          // No falla la creación del producto si Instagram falla
+        });
+    }
 
     return new Response(
       JSON.stringify(created),

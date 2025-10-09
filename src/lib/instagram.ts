@@ -295,7 +295,75 @@ export class InstagramService {
     }
   }
 
-  private buildCaption(product: ProductData): string {
+  /**
+   * Elimina un post de Instagram
+   */
+  async deletePost(postId: string): Promise<void> {
+    const { accessToken } = this.config;
+
+    try {
+      await axios.delete(
+        `https://graph.instagram.com/v24.0/${postId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      console.log(`🗑️  Post ${postId} eliminado de Instagram`);
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error(
+          "Error eliminando post de Instagram:",
+          error.response?.data || error.message
+        );
+        throw new Error(
+          `Instagram API Error: ${error.response?.data?.error?.message || error.message}`
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Actualiza el caption de un post existente
+   * Nota: La API de Instagram tiene limitaciones para actualizar posts.
+   * Solo se puede actualizar el caption de posts de tipo media (no de reels ni IGTV)
+   */
+  async updateCaption(postId: string, caption: string): Promise<void> {
+    const { accessToken } = this.config;
+
+    try {
+      await axios.post(
+        `https://graph.instagram.com/v24.0/${postId}`,
+        {
+          caption: caption,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      console.log(`✏️  Caption actualizado para post ${postId}`);
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error(
+          "Error actualizando caption en Instagram:",
+          error.response?.data || error.message
+        );
+        throw new Error(
+          `Instagram API Error: ${error.response?.data?.error?.message || error.message}`
+        );
+      }
+      throw error;
+    }
+  }
+
+  public buildCaption(product: ProductData): string {
     let caption = `✨ ${product.title}\n\n`;
 
     if (product.description) {

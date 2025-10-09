@@ -58,6 +58,8 @@ model Product {
   quality        ProductQuality?
   league         String?
   purchaseUrl    String? // link de compra (opcional)
+  // Instagram:
+  instagramPostId String? // ID del post en Instagram
   // Relación:
   ProductVariant ProductVariant[]
   ProductImage   ProductImage[]

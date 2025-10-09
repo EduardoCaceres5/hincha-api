@@ -511,10 +511,15 @@ export async function POST(req: NextRequest) {
           quality: dataForDb.quality ?? undefined,
           seasonLabel: dataForDb.seasonLabel ?? undefined,
         })
-        .then((postId) => {
+        .then(async (postId) => {
           console.log(
             `✅ Producto "${dataForDb.title}" publicado en Instagram: ${postId}`
           );
+          // Guardar el ID del post en la base de datos
+          await prisma.product.update({
+            where: { id: created.id },
+            data: { instagramPostId: postId },
+          });
         })
         .catch((error) => {
           console.error(

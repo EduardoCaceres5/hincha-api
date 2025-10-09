@@ -1,6 +1,57 @@
-# Scripts de publicación en Instagram
+# Scripts de Instagram
 
-## Publicar todos los productos existentes
+## 1. Sincronizar IDs de Instagram con productos existentes
+
+Si ya publicaste productos en Instagram ANTES de tener el campo `instagramPostId`, usa este script para asociar automáticamente los posts existentes con tus productos.
+
+### ¿Cómo funciona?
+
+- Obtiene los últimos 100 posts de tu cuenta de Instagram
+- Busca cada producto en la base de datos que no tenga `instagramPostId`
+- Intenta hacer match entre el título del producto y el caption del post
+- Actualiza automáticamente el campo `instagramPostId` cuando encuentra coincidencias
+
+### Uso
+
+```bash
+pnpm run instagram:sync-ids
+```
+
+### Output esperado
+
+```
+🔄 Iniciando sincronización de IDs de Instagram...
+
+📥 Obteniendo posts de Instagram...
+✅ 36 posts encontrados en Instagram
+
+📦 36 productos sin ID de Instagram
+
+✅ "CAMISETA PORTUGAL 2025 CR7" → Instagram Post ID: 18093122032796762
+✅ "CAMISETA ARGENTINA 2025 MESSI" → Instagram Post ID: 18102794287616006
+...
+
+============================================================
+📊 RESUMEN DE SINCRONIZACIÓN
+============================================================
+Total procesados: 36
+✅ Asociados: 35
+⚠️  No encontrados: 1
+============================================================
+```
+
+### Notas importantes
+
+- Solo procesa productos que NO tienen `instagramPostId`
+- La asociación se hace por coincidencia de texto en el caption
+- Si un producto no se asocia automáticamente, puedes:
+  - Actualizarlo manualmente en la base de datos
+  - Volver a publicarlo para crear un nuevo post
+- El script obtiene máximo los últimos 100 posts de Instagram
+
+---
+
+## 2. Publicar todos los productos existentes
 
 Este script te permite publicar todos los productos que ya tienes en la base de datos a Instagram.
 

@@ -4,6 +4,7 @@ import { withCORS, preflight } from "@/lib/cors";
 import { requireAuth } from "@/lib/auth";
 import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 import { z } from "zod";
+import { instagramService } from "@/lib/instagram";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -301,6 +302,54 @@ export async function PUT(
       },
     });
 
+    // Actualizar caption en Instagram si el producto tiene un post asociado
+    // y se modificó algún campo relevante (title, description, basePrice, etc.)
+    const relevantFieldsChanged =
+      payload.title !== undefined ||
+      payload.description !== undefined ||
+      payload.basePrice !== undefined ||
+      payload.kit !== undefined ||
+      payload.quality !== undefined ||
+      payload.league !== undefined ||
+      payload.seasonLabel !== undefined;
+
+    if (
+      existing.instagramPostId &&
+      instagramService &&
+      relevantFieldsChanged
+    ) {
+      // Actualizar en background (no bloquear respuesta)
+      const imageUrls = updated.ProductImage.length > 0
+        ? updated.ProductImage.map((img) => img.imageUrl)
+        : [updated.imageUrl];
+
+      instagramService
+        .updateCaption(
+          existing.instagramPostId,
+          instagramService.buildCaption({
+            title: updated.title,
+            description: updated.description ?? undefined,
+            imageUrls,
+            basePrice: updated.basePrice,
+            league: updated.league ?? undefined,
+            kit: updated.kit ?? undefined,
+            quality: updated.quality ?? undefined,
+            seasonLabel: updated.seasonLabel ?? undefined,
+          })
+        )
+        .then(() => {
+          console.log(
+            `✅ Caption actualizado en Instagram para producto "${updated.title}"`
+          );
+        })
+        .catch((error) => {
+          console.error(
+            `⚠️  No se pudo actualizar el caption en Instagram:`,
+            error instanceof Error ? error.message : error
+          );
+        });
+    }
+
     return new Response(
       JSON.stringify(updated),
       withCORS({ status: 200 }, req.headers.get("origin"))
@@ -344,6 +393,22 @@ export async function DELETE(
         try {
           await cloudinary.uploader.destroy(img.imagePublicId);
         } catch {}
+      }
+    }
+
+    // Eliminar post de Instagram si existe
+    if (existing.instagramPostId && instagramService) {
+      try {
+        await instagramService.deletePost(existing.instagramPostId);
+        console.log(
+          `✅ Post de Instagram ${existing.instagramPostId} eliminado para producto "${existing.title}"`
+        );
+      } catch (error) {
+        console.error(
+          `⚠️  No se pudo eliminar el post de Instagram:`,
+          error instanceof Error ? error.message : error
+        );
+        // No fallar la eliminación del producto si Instagram falla
       }
     }
 

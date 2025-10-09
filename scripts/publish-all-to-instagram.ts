@@ -100,7 +100,15 @@ async function main() {
         seasonLabel: product.seasonLabel ?? undefined,
       });
 
-      console.log(`✅ Publicado con éxito → Post ID: ${postId}\n`);
+      console.log(`✅ Publicado con éxito → Post ID: ${postId}`);
+
+      // Guardar el ID del post en la base de datos
+      await prisma.product.update({
+        where: { id: product.id },
+        data: { instagramPostId: postId },
+      });
+
+      console.log(`💾 ID guardado en base de datos\n`);
 
       results.push({
         productId: product.id,

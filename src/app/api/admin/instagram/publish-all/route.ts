@@ -100,6 +100,12 @@ export async function POST(req: NextRequest) {
           seasonLabel: product.seasonLabel ?? undefined,
         });
 
+        // Guardar el ID del post en la base de datos
+        await prisma.product.update({
+          where: { id: product.id },
+          data: { instagramPostId: postId },
+        });
+
         results.push({
           productId: product.id,
           title: product.title,

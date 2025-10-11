@@ -9,7 +9,9 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 const schema = z.object({
-  status: z.enum(["pending", "paid", "canceled"]).optional(),
+  status: z.enum(["pending", "confirmed", "preparing", "ready", "delivered", "cancelled"])
+    .transform(val => val.toUpperCase() as "PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "DELIVERED" | "CANCELLED")
+    .optional(),
   depositAmount: z.number().int().positive().optional(),
 });
 
@@ -73,8 +75,8 @@ export async function PATCH(
         updateData.depositTransactionId = depositTransaction.id;
       }
 
-      // Si se está cambiando el status a "paid" y hay saldo pendiente
-      if (body.status === "paid" && order.status !== "paid") {
+      // Si se está cambiando el status a "DELIVERED" y hay saldo pendiente
+      if (body.status === "DELIVERED" && order.status !== "DELIVERED") {
         const depositAmount = updateData.depositAmount || order.depositAmount || 0;
         const balance = order.totalPrice - depositAmount;
 
@@ -95,7 +97,7 @@ export async function PATCH(
           updateData.balanceTransactionId = balanceTransaction.id;
         }
 
-        updateData.status = "paid";
+        updateData.status = "DELIVERED";
       } else if (body.status && body.status !== order.status) {
         updateData.status = body.status;
       }

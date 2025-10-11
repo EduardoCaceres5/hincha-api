@@ -7,7 +7,10 @@ import { z } from "zod";
 export async function OPTIONS(req: NextRequest) {
   return preflight(req);
 }
-const schema = z.object({ status: z.enum(["pending", "paid", "canceled"]) });
+const schema = z.object({
+  status: z.enum(["pending", "confirmed", "preparing", "ready", "delivered", "cancelled"])
+    .transform(val => val.toUpperCase() as "PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "DELIVERED" | "CANCELLED")
+});
 
 export async function PATCH(
   req: NextRequest,

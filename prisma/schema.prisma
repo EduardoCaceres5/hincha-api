@@ -21,6 +21,16 @@ enum KitType {
   RETRO
 }
 
+// Estados de órdenes
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
 // Transacciones financieras (ingresos/egresos)
 enum TransactionType {
   INCOME
@@ -104,10 +114,10 @@ model ProductVariant {
 }
 
 model Order {
-  id       String  @id @default(cuid())
+  id       String      @id @default(cuid())
   userId   String?
-  user     User?   @relation(fields: [userId], references: [id])
-  status   String  @default("pending") // pending | paid | canceled
+  user     User?       @relation(fields: [userId], references: [id])
+  status   OrderStatus @default(PENDING)
   name     String
   phone    String
   address  String

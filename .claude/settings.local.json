@@ -4,7 +4,9 @@
       "Bash(pnpm install:*)",
       "Bash(pnpm run:*)",
       "Bash(pnpm db:push:*)",
-      "Read(//c/Users/ecaceres/proyectos/personal/hincha-store/**)"
+      "Read(//c/Users/ecaceres/proyectos/personal/hincha-store/**)",
+      "Bash(pnpm prisma migrate dev:*)",
+      "Bash(pnpm prisma:*)"
     ],
     "deny": [],
     "ask": []

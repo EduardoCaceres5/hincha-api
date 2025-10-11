@@ -124,6 +124,13 @@ model Order {
   // --- Total final del pedido (subtotal + extras) ---
   totalPrice Int
 
+  // --- Pagos parciales / Señas ---
+  depositAmount     Int?      // monto de seña/pago parcial (opcional)
+  depositPaidAt     DateTime? // fecha en que se registró la seña
+  depositTransactionId String? @unique // ID de la transacción de ingreso por la seña
+  balancePaidAt     DateTime? // fecha en que se pagó el saldo restante
+  balanceTransactionId String? @unique // ID de la transacción de ingreso por el saldo
+
   createdAt DateTime    @default(now())
   items     OrderItem[]
 }
